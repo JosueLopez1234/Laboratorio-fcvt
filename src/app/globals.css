@@ -1,26 +1,100 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --uleam: #ff3547;
+  --uleam-dark: #d92a3a;
+  --card: #f5f5f5;
+  --ink: #333333;
+  --mut: #6b7280;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-montserrat), system-ui, sans-serif;
+  color: var(--ink);
+  background: #fff;
+}
+
+.header-app {
+  background: var(--uleam);
+  color: #fff;
+  padding: 14px 16px;
+}
+
+.tarjeta {
+  background: var(--card);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fff;
+}
+.input:focus {
+  outline: 2px solid var(--uleam);
+}
+
+.btn {
+  background: var(--uleam);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 12px 20px;
+  width: 100%;
+}
+
+.encabezado-inst {
+  border: 1px solid #000;
+  background: #fff;
+}
+.encabezado-inst__fila {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+}
+.encabezado-inst__logo {
+  height: 56px;
+  width: auto;
+  flex-shrink: 0;
+}
+.encabezado-inst__facultad {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.encabezado-inst__titulo {
+  border-top: 1px solid #000;
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.franja-logo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #fff;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.franja-logo .logo {
+  height: 64px;
+  width: auto;
+  max-width: none;
+  flex-shrink: 0;   /* evita que el texto lo aplaste */
+}
+.franja-logo .facultad {
+  flex: 0 1 220px;     /* ancho fijo de 220px, pegado a la derecha por space-between */
+  text-align: right;   /* texto alineado a la derecha */
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
 }
