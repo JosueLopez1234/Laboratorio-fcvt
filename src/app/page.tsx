@@ -8,12 +8,16 @@ import {
 } from "lucide-react";
 import Encabezado from "@/components/Encabezado";
 
+import DashboardDocente from "@/components/DashboardDocente";
+
+
+
 const MENU = {
   Docente: [
-    { href: "/docente/solicitar", t: "Solicitar laboratorio", i: CalendarCheck },
-    { href: "/docente/ingreso-salida", t: "Ingreso y salida", i: LogIn },
-    { href: "/docente/falla", t: "Reportar falla", i: Wrench },
-    { href: "/docente/stock", t: "Solicitar stock", i: Package },
+    { href: "/docente/solicitar", t: "Reservar Laboratorio", i: CalendarCheck },
+    { href: "/docente/ingreso-salida", t: "Registrar acceso", i: LogIn },
+    { href: "/docente/falla", t: "Reportar incidencia", i: Wrench },
+    { href: "/docente/stock", t: "Solicitar material", i: Package },
   ],
   Estudiante: [
     { href: "/estudiante/acta", t: "Acta de compromiso", i: FileSignature },
@@ -56,21 +60,35 @@ export default function Home() {
     );
   }
 
+   const selectorRol = (
+    <div className="flex gap-1 rounded-full bg-black/20 p-1">
+      {(Object.keys(MENU) as Rol[]).map((r) => (
+        <button
+          key={r}
+          onClick={() => setRol(r)}
+          className={`flex-1 rounded-full py-1.5 text-sm ${
+            r === rol ? "bg-white font-bold text-[var(--uleam)]" : "text-white"
+          }`}
+        >
+          {r}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (rol === "Docente") {
+    return (
+      <>
+        {/* barra temporal para cambiar de rol mientras desarrollas */}
+        <div className="home-role-switch bg-[var(--uleam)]">{selectorRol}</div>
+        <DashboardDocente />
+      </>
+    );
+  }
+
   return (
     <main className="min-h-screen">
-      <Encabezado>
-        <div className="flex gap-1 rounded-full bg-black/20 p-1">
-          {(Object.keys(MENU) as Rol[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRol(r)}
-              className={`flex-1 rounded-full py-1.5 text-sm ${r === rol ? "bg-white font-bold text-[var(--uleam)]" : "text-white"}`}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
-      </Encabezado>
+      <Encabezado>{selectorRol}</Encabezado>
       <section className="grid grid-cols-2 gap-4 p-4">
         {MENU[rol].map(({ href, t, i: Icono }) => (
           <Link
