@@ -3,6 +3,21 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useRef } from "react";
 
+export const CARRERAS = [
+  "Software",
+  "Tecnologías de la Información",
+  "Sistemas de Información",
+  "Telecomunicaciones",
+  "Otras",
+];
+
+export const PERIODOS = [
+  "2025-1",
+  "2025-2",
+  "2026-1",
+  "2026-2",
+];
+
 export function Pantalla({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <main className="min-h-screen">
