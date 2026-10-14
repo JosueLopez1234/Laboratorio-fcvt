@@ -706,3 +706,415 @@ body {
     border-radius: 12px;
   }
 }
+/* =========================================================
+   SOLICITAR LABORATORIO (asistente por pasos)
+   Pégalo al FINAL de globals.css. Usa los tokens --dd-* existentes.
+   ========================================================= */
+
+.ss-card {
+  max-width: 860px;
+  margin-top: 16px;
+  padding: 20px 16px;
+  background: var(--dd-surface);
+  border-radius: var(--dd-radius-card);
+  box-shadow: var(--dd-shadow);
+}
+@media (min-width: 640px) {
+  .ss-card { padding: 28px 32px; }
+}
+
+/* ---------- Stepper: azul = actual, verde = completado, gris = pendiente ---------- */
+.ss-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 0 0 26px;
+  padding: 0;
+  list-style: none;
+}
+.ss-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.ss-step:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  right: 50%;
+  top: 12px;
+  width: 100%;
+  height: 4px;
+  background: var(--dd-neutral);
+}
+.ss-step.is-done::before,
+.ss-step.is-current::before { background: var(--dd-ok); }
+.ss-step__dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--dd-neutral);
+  color: var(--dd-mut);
+  font-size: 12px;
+  font-weight: 700;
+}
+.ss-step.is-done .ss-step__dot { background: var(--dd-ok); color: #fff; }
+.ss-step.is-current .ss-step__dot { background: var(--dd-blue); color: #fff; }
+.ss-step__label { font-size: 11px; color: var(--dd-mut); }
+.ss-step.is-current .ss-step__label { color: var(--dd-navy); font-weight: 700; }
+@media (min-width: 640px) {
+  .ss-step__label { font-size: 12.5px; }
+}
+
+/* ---------- Campos ---------- */
+.ss-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.ss-fieldset[hidden] { display: none; }
+.ss-legend {
+  padding: 0;
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--dd-navy);
+}
+.ss-group { margin-bottom: 16px; }
+.ss-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dd-navy);
+}
+.ss-row { display: grid; gap: 0 16px; }
+@media (min-width: 640px) {
+  .ss-row { grid-template-columns: 1fr 1fr; }
+}
+.ss-fieldset .input { border-color: var(--dd-neutral); }
+.ss-fieldset .input:focus { outline-color: var(--dd-blue); }
+.ss-fieldset .input[readonly] { background: var(--dd-bg); color: var(--dd-mut); }
+.ss-fieldset .input[aria-invalid="true"] { border-color: var(--dd-danger); background: var(--dd-danger-soft); }
+.ss-error { margin-top: 6px; font-size: 12px; color: var(--dd-danger); }
+
+/* ---------- Tarjetas de laboratorio ---------- */
+.ss-labs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.ss-lab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px;
+  text-align: left;
+  background: #fff;
+  border: 2px solid var(--dd-neutral);
+  border-radius: 14px;
+  cursor: pointer;
+}
+.ss-lab:hover { border-color: var(--dd-blue); }
+.ss-lab:focus-visible { outline: 2px solid var(--dd-blue); outline-offset: 2px; }
+.ss-lab__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: #e8eaf3;
+  color: var(--dd-navy);
+}
+.ss-lab__name { font-size: 14px; font-weight: 700; color: var(--dd-navy); }
+.ss-lab__meta { font-size: 11px; color: var(--dd-mut); }
+.ss-lab.is-selected { border-color: var(--dd-blue); background: var(--dd-blue-soft); }
+.ss-lab.is-selected .ss-lab__icon { background: var(--dd-blue); color: #fff; }
+
+/* ---------- Resumen (paso 4) ---------- */
+.ss-sum {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid var(--dd-neutral);
+}
+.ss-sum__head { display: flex; align-items: center; justify-content: space-between; }
+.ss-sum__title { font-size: 14px; font-weight: 700; color: var(--dd-navy); }
+.ss-link { font-size: 12px; font-weight: 700; color: var(--dd-blue); cursor: pointer; }
+.ss-link:focus-visible { outline: 2px solid var(--dd-blue); outline-offset: 2px; }
+.ss-sum__list { margin: 10px 0 0; }
+.ss-sum__row {
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--dd-bg);
+  font-size: 13px;
+}
+.ss-sum__row dt { width: 110px; flex-shrink: 0; color: var(--dd-mut); }
+.ss-sum__row dd { margin: 0; color: var(--dd-text); font-weight: 500; overflow-wrap: anywhere; }
+
+/* ---------- Botones ---------- */
+.ss-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--dd-neutral);
+}
+.ss-actions--center { justify-content: center; border-top: 0; }
+.ss-actions__nav { display: flex; gap: 10px; margin-left: auto; }
+.ss-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.ss-btn:focus-visible { outline: 2px solid var(--dd-blue); outline-offset: 2px; }
+.ss-btn--primary { background: var(--dd-blue); color: #fff; }
+.ss-btn--primary:hover { background: #2230c4; }
+.ss-btn--ghost { background: var(--dd-neutral); color: var(--dd-text); }
+.ss-btn--danger { background: var(--dd-danger-soft); color: var(--dd-danger); border-color: var(--dd-danger); }
+
+/* ---------- Pantalla de éxito ---------- */
+.ss-done { display: flex; flex-direction: column; align-items: center; text-align: center; padding-block: 40px; }
+.ss-done__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  background: var(--dd-ok-bg);
+  color: var(--dd-ok-fg);
+}
+.ss-done__title { font-size: 22px; font-weight: 800; color: var(--dd-navy); }
+.ss-done__text { max-width: 420px; margin-top: 6px; font-size: 14px; color: var(--dd-mut); }
+.ss-done .ss-actions { margin-top: 22px; }
+
+/* =========================================================
+   SOLICITAR MATERIAL (stock) – estilos adicionales
+   Pégalo al FINAL de globals.css, debajo de los estilos .ss- de solicitar.
+   ========================================================= */
+
+/* Stepper de 3 pasos */
+.ss-steps--3 { grid-template-columns: repeat(3, 1fr); }
+
+/* Selector de materiales con cantidad */
+.ss-mats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+.ss-mat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 10px;
+  background: #fff;
+  border: 2px solid var(--dd-neutral);
+  border-radius: 14px;
+}
+.ss-mat:hover { border-color: var(--dd-blue); }
+.ss-mat.is-selected { border-color: var(--dd-blue); background: var(--dd-blue-soft); }
+
+.ss-mat__main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.ss-mat__main:focus-visible { outline: 2px solid var(--dd-blue); outline-offset: 2px; }
+.ss-mat__check {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--dd-neutral);
+  background: #fff;
+  color: #fff;
+}
+.ss-mat.is-selected .ss-mat__check { background: var(--dd-blue); border-color: var(--dd-blue); }
+.ss-mat__name { font-size: 13px; font-weight: 600; color: var(--dd-navy); line-height: 1.25; }
+
+.ss-qty {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: #fff;
+  border-radius: 999px;
+}
+.ss-qty button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--dd-neutral);
+  color: var(--dd-navy);
+  cursor: pointer;
+}
+.ss-qty button:focus-visible { outline: 2px solid var(--dd-blue); outline-offset: 2px; }
+.ss-qty span {
+  min-width: 26px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dd-navy);
+}
+
+/* =========================================================
+   ACTA DE COMPROMISO (estudiante) – estilos adicionales
+   Pégalo al FINAL de globals.css, debajo de los estilos de solicitar y stock.
+   ========================================================= */
+
+.ss-count { margin: -6px 0 14px; font-size: 13px; color: var(--dd-mut); }
+
+/* Lista de estudiantes */
+.ss-stus { display: grid; gap: 10px; }
+.ss-stu {
+  display: grid;
+  grid-template-columns: 28px 1fr 36px;
+  align-items: center;
+  gap: 8px;
+}
+.ss-stu__n { font-size: 13px; font-weight: 700; color: var(--dd-mut); text-align: center; }
+.ss-stu__fields { display: grid; gap: 8px; min-width: 0; }
+@media (min-width: 640px) {
+  .ss-stu__fields { grid-template-columns: 170px 1fr; }
+}
+.ss-stu .input[aria-invalid="true"] { border-color: var(--dd-danger); background: var(--dd-danger-soft); }
+.ss-stu__x {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--dd-neutral);
+  color: var(--dd-navy);
+  cursor: pointer;
+}
+.ss-stu__x:disabled { opacity: 0.4; cursor: not-allowed; }
+.ss-stu__x:focus-visible { outline: 2px solid var(--dd-blue); outline-offset: 2px; }
+.ss-stu__err { margin: 4px 0 0 36px; }
+.ss-add { margin-top: 14px; }
+.ss-add:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Compromiso y aceptación */
+.ss-rules { margin: 10px 0 0; padding-left: 20px; font-size: 13px; color: var(--dd-text); }
+.ss-rules li { margin-bottom: 4px; }
+.ss-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dd-navy);
+  cursor: pointer;
+}
+.ss-check input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--dd-blue); flex-shrink: 0; }
+/* =========================================================
+   DASHBOARD DEL TÉCNICO – estilos adicionales
+   Pégalo al FINAL de globals.css. Usa los tokens --dd-* existentes.
+   ========================================================= */
+
+/* Resumen de pendientes */
+.tt-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+@media (min-width: 1024px) {
+  .tt-stats { grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 20px; }
+}
+.tt-stat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--dd-surface);
+  border-radius: var(--dd-radius-card);
+  box-shadow: var(--dd-shadow);
+}
+.tt-stat__icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #e8eaf3;
+  color: var(--dd-navy);
+}
+.tt-stat--main .tt-stat__icon { background: var(--dd-blue); color: #fff; }
+.tt-stat__n { font-size: 22px; font-weight: 800; line-height: 1; color: var(--dd-navy); }
+.tt-stat__t { margin-top: 3px; font-size: 11px; color: var(--dd-mut); }
+
+/* Tarjeta de solicitud */
+.tt-meta { margin-top: 10px; font-size: 11px; color: var(--dd-mut); }
+.tt-btns { display: flex; gap: 8px; }
+[data-estado="rechazado"] .dd-badge { background: var(--dd-danger-soft); color: var(--dd-danger); }
+/* =========================================================
+   SOLICITUDES DEL TÉCNICO – estilos adicionales
+   Pégalo al FINAL de globals.css, debajo de tecnico-estilos.css.
+   ========================================================= */
+
+.tt-search { margin-top: 12px; max-width: 360px; }
+.tt-search .input { border-color: var(--dd-neutral); }
+.tt-search .input:focus { outline-color: var(--dd-blue); }
+
+/* Aviso de choque de horario */
+.tt-warn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--dd-pend-bg);
+  color: var(--dd-pend-fg);
+  font-size: 11px;
+  font-weight: 600;
+}
+.tt-warn svg { flex-shrink: 0; }
+
+/* Cuadro para escribir el motivo del rechazo */
+.tt-reject {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--dd-neutral);
+}
+.tt-reject .tt-btns { justify-content: flex-end; }
+.tt-reject .ss-label { margin-bottom: 0; }
+.tt-reject .input { border-color: var(--dd-neutral); }
+.tt-reject .input:focus { outline-color: var(--dd-blue); }
+
+/* Paso rechazado: el punto actual va en rojo */
+[data-estado="rechazado"] .dd-step.is-current .dd-step__dot { background: var(--dd-danger); }

@@ -1,37 +1,12 @@
 ﻿"use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
-import {
-  CalendarCheck, LogIn, Wrench, Package, FileSignature,
-  ClipboardList, Cog, Boxes, LayoutDashboard,
-} from "lucide-react";
-import Encabezado from "@/components/Encabezado";
-
 import DashboardDocente from "@/components/DashboardDocente";
+import DashboardEstudiante from "@/components/Dashboardestudiante";
+import DashboardTecnico from "@/components/DashboardTecnico";
 
-
-
-const MENU = {
-  Docente: [
-    { href: "/docente/solicitar", t: "Reservar Laboratorio", i: CalendarCheck },
-    { href: "/docente/ingreso-salida", t: "Registrar acceso", i: LogIn },
-    { href: "/docente/falla", t: "Reportar incidencia", i: Wrench },
-    { href: "/docente/stock", t: "Solicitar material", i: Package },
-  ],
-  Estudiante: [
-    { href: "/estudiante/acta", t: "Acta de compromiso", i: FileSignature },
-    { href: "/estudiante/falla", t: "Reportar falla", i: Wrench },
-  ],
-  Técnico: [
-    { href: "/tecnico/panel", t: "Panel", i: LayoutDashboard },
-    { href: "/tecnico/solicitudes", t: "Solicitudes", i: ClipboardList },
-    { href: "/tecnico/mantenimiento", t: "Mantenimiento", i: Cog },
-    { href: "/tecnico/inventario", t: "Inventario", i: Boxes },
-  ],
-} as const;
-
-type Rol = keyof typeof MENU;
+const ROLES = ["Docente", "Estudiante", "Técnico"] as const;
+type Rol = (typeof ROLES)[number];
 
 export default function Home() {
   const [rol, setRol] = useState<Rol>("Docente");
@@ -43,6 +18,21 @@ export default function Home() {
     }, 1500);
     return () => clearTimeout(timer);
   }, []);
+
+  // Recuerda el último rol elegido, para que al volver desde otra página no regrese a "Docente"
+  useEffect(() => {
+    try {
+      const guardado = localStorage.getItem("rol-temporal");
+      if (guardado && (ROLES as readonly string[]).includes(guardado)) setRol(guardado as Rol);
+    } catch {}
+  }, []);
+
+  const cambiarRol = (r: Rol) => {
+    setRol(r);
+    try {
+      localStorage.setItem("rol-temporal", r);
+    } catch {}
+  };
 
   if (showSplash) {
     return (
@@ -60,12 +50,12 @@ export default function Home() {
     );
   }
 
-   const selectorRol = (
+  const selectorRol = (
     <div className="flex gap-1 rounded-full bg-black/20 p-1">
-      {(Object.keys(MENU) as Rol[]).map((r) => (
+      {ROLES.map((r) => (
         <button
           key={r}
-          onClick={() => setRol(r)}
+          onClick={() => cambiarRol(r)}
           className={`flex-1 rounded-full py-1.5 text-sm ${
             r === rol ? "bg-white font-bold text-[var(--uleam)]" : "text-white"
           }`}
@@ -76,31 +66,13 @@ export default function Home() {
     </div>
   );
 
-  if (rol === "Docente") {
-    return (
-      <>
-        {/* barra temporal para cambiar de rol mientras desarrollas */}
-        <div className="home-role-switch bg-[var(--uleam)]">{selectorRol}</div>
-        <DashboardDocente />
-      </>
-    );
-  }
-
   return (
-    <main className="min-h-screen">
-      <Encabezado>{selectorRol}</Encabezado>
-      <section className="grid grid-cols-2 gap-4 p-4">
-        {MENU[rol].map(({ href, t, i: Icono }) => (
-          <Link
-            key={href + t}
-            href={href}
-            className="tarjeta flex flex-col items-center gap-3 px-3 py-6 text-center"
-          >
-            <Icono size={36} style={{ color: "var(--uleam)" }} />
-            <span className="text-sm font-medium">{t}</span>
-          </Link>
-        ))}
-      </section>
-    </main>
+    <>
+      {/* barra temporal para cambiar de rol mientras desarrollas */}
+      <div className="home-role-switch bg-[var(--uleam)]">{selectorRol}</div>
+      {rol === "Docente" && <DashboardDocente />}
+      {rol === "Estudiante" && <DashboardEstudiante />}
+      {rol === "Técnico" && <DashboardTecnico />}
+    </>
   );
 }
