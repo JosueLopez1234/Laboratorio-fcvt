@@ -139,23 +139,38 @@ export default function DashboardDocente() {
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [colapsado, setColapsado] = useState(false); // sidebar: false = completo, true = solo íconos
   const [bannerActual, setBannerActual] = useState(0);
+  const [inicioX, setInicioX] = useState<number | null>(null);   
   const pathname = usePathname();
   const esActivo = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   useEffect(() => {
     if (BANNERS.length < 2) return;
-
     const timer = window.setInterval(() => {
-      setBannerActual((actual) => (actual + 1) % BANNERS.length);
+    setBannerActual((actual) => (actual + 1) % BANNERS.length);
     }, 5000);
-
     return () => window.clearInterval(timer);
-  }, []);
+  }, [bannerActual]);
 
   const contar = (f: Filtro) =>
     f === "todas" ? RESERVAS.length : RESERVAS.filter((r) => r.estado === f).length;
   const visibles = filtro === "todas" ? RESERVAS : RESERVAS.filter((r) => r.estado === filtro);
+
+
+const siguiente = () => setBannerActual((a) => (a + 1) % BANNERS.length);
+const anterior = () => setBannerActual((a) => (a - 1 + BANNERS.length) % BANNERS.length);
+
+const alTocar = (e: React.TouchEvent) => setInicioX(e.touches[0].clientX);
+
+const alSoltar = (e: React.TouchEvent) => {
+  if (inicioX === null) return;
+  const diferencia = e.changedTouches[0].clientX - inicioX;
+  if (Math.abs(diferencia) > 50) {          // mínimo 50px para contar como deslizamiento
+    if (diferencia < 0) siguiente();        // deslizar a la izquierda -> siguiente
+    else anterior();                        // deslizar a la derecha -> anterior
+  }
+  setInicioX(null);
+};
 
   return (
     <div className={`dd-app ${colapsado ? "is-collapsed" : ""}`}>
@@ -208,7 +223,13 @@ export default function DashboardDocente() {
         <h1 className="dd-title">¡Bienvenido!</h1>
         <p className="dd-subtitle">Gestión de laboratorios, solicitudes e inventario.</p>
 
-        <div className="dd-banner" aria-label="Carrusel de imágenes">
+        <div className="dd-banner"
+              role="region" 
+              aria-roledescription="carrusel"
+              aria-label="Carrusel de imágenes"
+              onTouchStart={alTocar}
+              onTouchEnd={alSoltar}
+        >
           {BANNERS.map((banner, index) => (
             <div
               key={banner.src}

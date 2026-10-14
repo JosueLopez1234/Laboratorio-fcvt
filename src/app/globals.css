@@ -240,6 +240,8 @@ body {
   overflow: hidden;
   box-shadow: var(--dd-shadow);
   background: #7ea6c9;
+  touch-action: pan-y;   /* <-- nuevo */
+  user-select: none;     /* <-- nuevo */
 }
 .dd-banner__slide {
   position: absolute;

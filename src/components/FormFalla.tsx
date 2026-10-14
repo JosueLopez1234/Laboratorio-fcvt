@@ -1,6 +1,6 @@
 "use client";
-import { Pantalla, Campo, Sel, Chips, Formulario, CARRERAS, PERIODOS } from "@/components/ui";
-
+import { Pantalla, Campo, Sel, Chips, Formulario } from "@/components/ui";
+import { CARRERAS, PERIODOS } from "@/lib/datos";
 export default function FormFalla() {
   return (
     <Pantalla titulo="Reportar falla de equipo">
