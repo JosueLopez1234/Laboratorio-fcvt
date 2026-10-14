@@ -69,6 +69,8 @@ const MENU = [
 const BANNERS = [
   { src: "/fcvt.jpg", text: "Facultad de Ciencias de la Vida y Tecnología" },
   { src: "/fctv2.jpg", text: "Carrera de software" },
+  { src: "/fcvt3.jpg", text: "Nuevas Oportunidades cada día" },
+  
 ];
 
 function Accion({ estado }: { estado: Estado }) {
