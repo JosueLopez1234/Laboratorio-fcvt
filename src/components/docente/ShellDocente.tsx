@@ -7,8 +7,10 @@ import {
   Bell, User, House, Plus, ClipboardCheck, CalendarCheck, LogIn, Wrench, Package, Menu,
   ClipboardList, Cog, Boxes,
   type LucideIcon,
+  CalendarDays,
 } from "lucide-react";
-
+import BotonCampana from "@/components/Botoncampana";
+import BotonPerfil from "../BotonPerfil";
 export type ItemMenu = { href: string; t: string; i: LucideIcon };
 
 const MENU: ItemMenu[] = [
@@ -28,9 +30,10 @@ export const MENU_ESTUDIANTE: ItemMenu[] = [
 
 /* Menú del técnico (el "Panel" es el propio Dashboard, por eso no se repite) */
 export const MENU_TECNICO: ItemMenu[] = [
-  { href: "/tecnico/solicitudes",   t: "Solicitudes",   i: ClipboardList },
+  { href: "/tecnico/solicitudes", t: "Solicitudes", i: ClipboardList },
   { href: "/tecnico/mantenimiento", t: "Mantenimiento", i: Cog },
-  { href: "/tecnico/inventario",    t: "Inventario",    i: Boxes },
+  { href: "/tecnico/inventario", t: "Inventario", i: Boxes },
+  { href: "/tecnico/horarios", t: "Horarios", i: CalendarDays },
 ];
 
 /* Sin `menu` usa el del docente. Para otro rol, pásale su propio menú.
@@ -86,8 +89,8 @@ export default function ShellDocente({
       </aside>
 
       <div className="dd-topbar">
-        <button className="dd-icon-btn" aria-label="Notificaciones"><Bell /></button>
-        <button className="dd-icon-btn" aria-label="Perfil"><User /></button>
+        <BotonCampana />
+        <BotonPerfil />
       </div>
 
       <main className="dd-main">{children}</main>

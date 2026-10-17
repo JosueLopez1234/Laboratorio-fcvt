@@ -1,31 +1,15 @@
 "use client";
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
 import { Monitor, Check, X, Clock, ClipboardCheck, TriangleAlert } from "lucide-react";
 import ShellDocente, { MENU_TECNICO } from "@/components/docente/ShellDocente";
+import {
+  cargarSolicitudes, responderReserva, mensajeError, fechaLarga,
+  type SolicitudTec,
+} from "@/lib/reservas";
 
-type Estado = "pendiente" | "aprobado" | "rechazado";
+type Estado = SolicitudTec["estado"];
 type Paso = "done" | "current" | "todo";
-
-type Sol = {
-  id: number;
-  docente: string;
-  lab: string;
-  fecha: string;
-  inicio: string;
-  fin: string;
-  est: number;
-  estado: Estado;
-  motivo?: string;
-};
-
-/* ---------- BASE DE DATOS FALSA (solo para ver los estados) ----------
-   Cuando tengas la API real, reemplaza este arreglo por tu fetch. */
-const MOCK: Sol[] = [
-  { id: 1, docente: "Ana Mora", lab: "201", fecha: "Lun 06/10", inicio: "08:00", fin: "10:00", est: 28, estado: "pendiente" },
-  { id: 2, docente: "Mario Cedeño", lab: "201", fecha: "Lun 06/10", inicio: "09:00", fin: "11:00", est: 20, estado: "pendiente" },
-  { id: 3, docente: "Luis Vera", lab: "103", fecha: "Mar 07/10", inicio: "10:00", fin: "12:00", est: 35, estado: "pendiente" },
-  { id: 4, docente: "Rosa Pinto", lab: "204", fecha: "Mié 08/10", inicio: "14:00", fin: "16:00", est: 22, estado: "aprobado" },
-];
 
 const PASOS: Record<Estado, Paso[]> = {
   pendiente: ["done", "done", "current", "todo"],
@@ -49,26 +33,54 @@ const FILTROS: { id: Filtro; t: string }[] = [
 ];
 
 /* Dos solicitudes chocan si piden el mismo laboratorio, el mismo día y las horas se cruzan */
-const cruza = (a: Sol, b: Sol) =>
+const cruza = (a: SolicitudTec, b: SolicitudTec) =>
   a.id !== b.id && a.lab === b.lab && a.fecha === b.fecha &&
   b.estado !== "rechazado" && a.inicio < b.fin && b.inicio < a.fin;
 
 export default function Solicitudes() {
-  const [items, setItems] = useState<Sol[]>(MOCK);
+  const [items, setItems] = useState<SolicitudTec[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [busqueda, setBusqueda] = useState("");
-  const [rechazando, setRechazando] = useState<number | null>(null);
+  const [rechazando, setRechazando] = useState<string | null>(null);
   const [motivo, setMotivo] = useState("");
+  const [ocupado, setOcupado] = useState<string | null>(null);
 
-  const aprobar = (id: number) =>
-    setItems((xs) => xs.map((x) => (x.id === id ? { ...x, estado: "aprobado" } : x)));
+  useEffect(() => {
+    cargarSolicitudes()
+      .then(setItems)
+      .catch((e) => setError(mensajeError(e)))
+      .finally(() => setCargando(false));
+  }, []);
 
-  const confirmarRechazo = (id: number) => {
-    setItems((xs) =>
-      xs.map((x) => (x.id === id ? { ...x, estado: "rechazado", motivo: motivo.trim() || undefined } : x)),
-    );
-    setRechazando(null);
-    setMotivo("");
+  const aprobar = async (id: string) => {
+    setError(""); setOcupado(id);
+    try {
+      await responderReserva(id, "aprobada");
+      setItems((xs) => xs.map((x) => (x.id === id ? { ...x, estado: "aprobado" } : x)));
+    } catch (e) {
+      setError(mensajeError(e));
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  const confirmarRechazo = async (id: string) => {
+    setError(""); setOcupado(id);
+    try {
+      const m = motivo.trim();
+      await responderReserva(id, "rechazada", m);
+      setItems((xs) =>
+        xs.map((x) => (x.id === id ? { ...x, estado: "rechazado", motivo: m || undefined } : x)),
+      );
+      setRechazando(null);
+      setMotivo("");
+    } catch (e) {
+      setError(mensajeError(e));
+    } finally {
+      setOcupado(null);
+    }
   };
 
   const contar = (f: Filtro) => (f === "todas" ? items.length : items.filter((i) => i.estado === f).length);
@@ -106,7 +118,11 @@ export default function Solicitudes() {
           />
         </div>
 
-        {visibles.length === 0 ? (
+        {error && <p className="ss-error" role="alert">{error}</p>}
+
+        {cargando ? (
+          <p className="dd-section-sub" style={{ marginTop: 14 }}>Cargando solicitudes…</p>
+        ) : visibles.length === 0 ? (
           <div className="dd-empty" role="status">
             <span className="dd-empty__icon"><ClipboardCheck size={28} /></span>
             <p className="dd-empty__title">No hay solicitudes</p>
@@ -122,9 +138,8 @@ export default function Solicitudes() {
               const pasos = PASOS[s.estado];
               const choques = items.filter((x) => cruza(s, x));
               const bloqueada = choques.some((x) => x.estado === "aprobado");
-              const meta = [s.fecha, `${s.inicio} - ${s.fin}`, `${s.est} estudiantes`, `Solicitante\n${s.docente}`];
+              const meta = [fechaLarga(s.fecha), `${s.inicio} - ${s.fin}`, `${s.est} estudiantes`, `Solicitante\n${s.docente}`];
               const abierto = rechazando === s.id;
-
               return (
                 <article key={s.id} className="dd-card" data-estado={s.estado}>
                   <div className="dd-card__top">
@@ -164,6 +179,7 @@ export default function Solicitudes() {
                       <div className="tt-btns">
                         <button
                           className="dd-btn dd-btn--danger"
+                          disabled={ocupado === s.id}
                           onClick={() => { setRechazando(s.id); setMotivo(""); }}
                         >
                           <X /> Rechazar
@@ -171,10 +187,10 @@ export default function Solicitudes() {
                         <button
                           className="dd-btn dd-btn--primary"
                           onClick={() => aprobar(s.id)}
-                          disabled={bloqueada}
+                          disabled={bloqueada || ocupado === s.id}
                           style={bloqueada ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                         >
-                          <Check /> Aprobar
+                          <Check /> {ocupado === s.id ? "Guardando…" : "Aprobar"}
                         </button>
                       </div>
                     </div>
@@ -190,7 +206,11 @@ export default function Solicitudes() {
                       />
                       <div className="tt-btns">
                         <button className="dd-btn dd-btn--ghost" onClick={() => setRechazando(null)}>Cancelar</button>
-                        <button className="dd-btn dd-btn--danger" onClick={() => confirmarRechazo(s.id)}>
+                        <button
+                          className="dd-btn dd-btn--danger"
+                          disabled={ocupado === s.id}
+                          onClick={() => confirmarRechazo(s.id)}
+                        >
                           <X /> Confirmar rechazo
                         </button>
                       </div>

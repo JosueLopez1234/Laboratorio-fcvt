@@ -5,9 +5,9 @@ import { Monitor, Check, ArrowLeft, ArrowRight, Send } from "lucide-react";
 import ShellDocente from "@/components/docente/ShellDocente";
 import { Firma } from "@/components/ui";
 import { LABS, CARRERAS, PERIODOS } from "@/lib/datos";
+import { crearReserva, choqueConClase, mensajeError } from "@/lib/reservas";
+import { usePerfil } from "@/lib/perfil";
 
-/* TODO: reemplazar por el usuario logueado cuando tengas la sesión */
-const USUARIO = "Juan Pérez";
 /* TODO: si tienes la capacidad real de cada laboratorio, ponla aquí. */
 const CAPACIDAD_DEFECTO = 40;
 
@@ -21,7 +21,7 @@ type Datos = {
 type Errores = Partial<Record<keyof Datos, string>>;
 
 const INICIAL: Datos = {
-  nombre: USUARIO,
+  nombre: "",
   carrera: CARRERAS[0] ?? "",
   asignatura: "",
   periodo: PERIODOS[0] ?? "",
@@ -77,10 +77,13 @@ function formatoFecha(iso: string) {
 }
 
 export default function Solicitar() {
+  const perfil = usePerfil();
   const [paso, setPaso] = useState(0);
   const [datos, setDatos] = useState<Datos>(INICIAL);
   const [errores, setErrores] = useState<Errores>({});
   const [enviado, setEnviado] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState("");
 
   const set = (k: keyof Datos) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -93,24 +96,42 @@ export default function Solicitar() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const siguiente = () => {
+  const siguiente = async () => {
     const er = validar(paso, datos);
+    if (Object.keys(er).length === 0 && paso === 1) {
+      try {
+        const choque = await choqueConClase(datos.lab, datos.fecha, datos.inicio, datos.fin);
+        if (choque) er.lab = choque;
+      } catch { /* si falla la consulta, el técnico lo verá al aprobar */ }
+    }
     setErrores(er);
     if (Object.keys(er).length === 0) ir(paso + 1);
   };
 
-  const enviar = (e: React.FormEvent) => {
+  const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (paso !== 3) return;
-    // TODO: aquí va lo que hacía <Formulario> al enviar (API, localStorage, etc.).
-    // La reserva debería quedar con estado "pendiente" en "Mis reservas".
-    setEnviado(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (paso !== 3 || enviando) return;
+    setEnviando(true);
+    setErrorEnvio("");
+    try {
+      await crearReserva({
+        lab: datos.lab, fecha: datos.fecha, inicio: datos.inicio, fin: datos.fin,
+        carrera: datos.carrera, periodo: datos.periodo, asignatura: datos.asignatura,
+        estudiantes: Number(datos.estudiantes), actividad: datos.actividad,
+      });
+      setEnviado(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setErrorEnvio(mensajeError(err));
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const nueva = () => {
     setDatos(INICIAL);
     setErrores({});
+    setErrorEnvio("");
     setPaso(0);
     setEnviado(false);
   };
@@ -133,7 +154,7 @@ export default function Solicitar() {
           </p>
           <div className="ss-actions ss-actions--center">
             <button type="button" className="ss-btn ss-btn--ghost" onClick={nueva}>Hacer otra solicitud</button>
-            <Link href="/" className="ss-btn ss-btn--primary">Ir a mis reservas</Link>
+            <Link href="/docente/reservas" className="ss-btn ss-btn--primary">Ir a mis reservas</Link>
           </div>
         </div>
       </ShellDocente>
@@ -166,7 +187,7 @@ export default function Solicitar() {
           <fieldset className="ss-fieldset" hidden={paso !== 0}>
             <legend className="ss-legend">Datos académicos</legend>
             <Grupo id="nombre" label="Nombres y apellidos">
-              <input className="input" id="nombre" value={datos.nombre} readOnly />
+              <input className="input" id="nombre" value={perfil?.nombre ?? ""} readOnly />
             </Grupo>
             <div className="ss-row">
               <Grupo id="carrera" label="Carrera">
@@ -270,7 +291,7 @@ export default function Solicitar() {
             <Resumen
               titulo="Datos académicos" onEditar={() => ir(0)}
               filas={[
-                ["Solicitante", datos.nombre],
+                ["Solicitante", perfil?.nombre ?? "—"],
                 ["Carrera", datos.carrera],
                 ["Asignatura", datos.asignatura],
                 ["Período", datos.periodo],
@@ -294,6 +315,8 @@ export default function Solicitar() {
             />
           </fieldset>
 
+          {errorEnvio && <p className="ss-error" role="alert">{errorEnvio}</p>}
+
           <div className="ss-actions">
             <Link href="/" className="ss-btn ss-btn--danger">Cancelar</Link>
             <div className="ss-actions__nav">
@@ -307,8 +330,8 @@ export default function Solicitar() {
                   Siguiente <ArrowRight size={16} />
                 </button>
               ) : (
-                <button type="submit" className="ss-btn ss-btn--primary">
-                  <Send size={16} /> Enviar solicitud
+                <button type="submit" className="ss-btn ss-btn--primary" disabled={enviando}>
+                  <Send size={16} /> {enviando ? "Enviando…" : "Enviar solicitud"}
                 </button>
               )}
             </div>
