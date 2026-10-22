@@ -5,9 +5,9 @@ import { Check, ArrowLeft, ArrowRight, Send, Minus, Plus } from "lucide-react";
 import ShellDocente from "@/components/docente/ShellDocente";
 import { Firma } from "@/components/ui";
 import { LABS, PERIODOS } from "@/lib/datos";
-
-/* TODO: reemplazar por el usuario logueado cuando tengas la sesión */
-const USUARIO = "Juan Pérez";
+import { crearSolicitudMaterial } from "@/lib/material";
+import { mensajeError } from "@/lib/reservas";
+import { usePerfil } from "@/lib/perfil";
 
 const PASOS = ["Solicitud", "Materiales", "Revisión"];
 
@@ -40,11 +40,15 @@ function Grupo({
 }
 
 export default function Stock() {
+  const perfil = usePerfil();
+  const nombre = perfil?.nombre ?? "";
   const [paso, setPaso] = useState(0);
   const [datos, setDatos] = useState<Datos>(INICIAL);
   const [mats, setMats] = useState<Record<string, number>>({});
   const [errores, setErrores] = useState<Errores>({});
   const [enviado, setEnviado] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState("");
   const [fecha] = useState(hoy);
 
   const set = (k: keyof Datos) =>
@@ -90,18 +94,37 @@ export default function Stock() {
     if (Object.keys(er).length === 0) ir(paso + 1);
   };
 
-  const enviar = (e: React.FormEvent) => {
+  const lista = Object.entries(mats);
+  const totalUnidades = lista.reduce((s, [, c]) => s + c, 0);
+  const nombreMat = (m: string) => (m === "Otros" ? `Otros: ${datos.otros.trim() || "—"}` : m);
+
+  const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (paso !== 2) return;
-    // TODO: aquí va lo que hacía <Formulario> al enviar (API, localStorage, etc.).
-    setEnviado(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (paso !== 2 || enviando) return;
+    setEnviando(true);
+    setErrorEnvio("");
+    try {
+      await crearSolicitudMaterial({
+        lab: datos.lab,
+        periodo: datos.periodo,
+        carrera: datos.carrera,
+        items: lista.map(([m, c]) => ({ material: nombreMat(m), cantidad: c })),
+        justificacion: datos.justificacion,
+      });
+      setEnviado(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setErrorEnvio(mensajeError(err));
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const nueva = () => {
     setDatos(INICIAL);
     setMats({});
     setErrores({});
+    setErrorEnvio("");
     setPaso(0);
     setEnviado(false);
   };
@@ -111,10 +134,6 @@ export default function Stock() {
     "aria-invalid": errores[k] ? true : undefined,
     "aria-describedby": errores[k] ? `${k}-err` : undefined,
   });
-
-  const lista = Object.entries(mats);
-  const totalUnidades = lista.reduce((s, [, c]) => s + c, 0);
-  const nombreMat = (m: string) => (m === "Otros" ? `Otros: ${datos.otros.trim() || "—"}` : m);
 
   if (enviado) {
     return (
@@ -160,7 +179,7 @@ export default function Stock() {
             <legend className="ss-legend">Datos de la solicitud</legend>
             <div className="ss-row">
               <Grupo id="nombre" label="Nombre y apellidos">
-                <input className="input" id="nombre" value={USUARIO} readOnly />
+                <input className="input" id="nombre" value={nombre} readOnly />
               </Grupo>
               <Grupo id="fecha" label="Fecha de solicitud">
                 <input className="input" id="fecha" value={fecha} readOnly />
@@ -251,7 +270,7 @@ export default function Stock() {
                 <button type="button" className="ss-link" onClick={() => ir(0)}>Editar</button>
               </div>
               <dl className="ss-sum__list">
-                <Fila k="Solicitante" v={USUARIO} />
+                <Fila k="Solicitante" v={nombre || "—"} />
                 <Fila k="Fecha" v={fecha} />
                 <Fila k="Laboratorio" v={datos.lab ? `Laboratorio ${datos.lab}` : "—"} />
                 <Fila k="Período" v={datos.periodo} />
@@ -273,6 +292,8 @@ export default function Stock() {
             <Firma label="Firma del solicitante" />
           </fieldset>
 
+          {errorEnvio && <p className="ss-error" role="alert">{errorEnvio}</p>}
+
           <div className="ss-actions">
             <Link href="/" className="ss-btn ss-btn--danger">Cancelar</Link>
             <div className="ss-actions__nav">
@@ -286,8 +307,8 @@ export default function Stock() {
                   Siguiente <ArrowRight size={16} />
                 </button>
               ) : (
-                <button type="submit" className="ss-btn ss-btn--primary">
-                  <Send size={16} /> Enviar solicitud
+                <button type="submit" className="ss-btn ss-btn--primary" disabled={enviando}>
+                  <Send size={16} /> {enviando ? "Enviando…" : "Enviar solicitud"}
                 </button>
               )}
             </div>

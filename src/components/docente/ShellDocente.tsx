@@ -4,13 +4,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  Bell, User, House, Plus, ClipboardCheck, CalendarCheck, LogIn, Wrench, Package, Menu,
-  ClipboardList, Cog, Boxes,
+  House, Plus, ClipboardCheck, CalendarCheck, LogIn, Wrench, Package, Menu,
+  ClipboardList, Cog, Boxes, CalendarDays,
   type LucideIcon,
-  CalendarDays,
 } from "lucide-react";
 import BotonCampana from "@/components/Botoncampana";
-import BotonPerfil from "../BotonPerfil";
+import BotonPerfil from "@/components/BotonPerfil";
+
 export type ItemMenu = { href: string; t: string; i: LucideIcon };
 
 const MENU: ItemMenu[] = [
@@ -52,8 +52,8 @@ export default function ShellDocente({
       <header className="dd-header">
         <Image className="dd-header__logo" src="/faviconnn.png" alt="FCVT" width={1080} height={1080} />
         <div className="dd-header__actions">
-          <button className="dd-icon-btn" aria-label="Notificaciones"><Bell /></button>
-          <button className="dd-icon-btn" aria-label="Perfil"><User /></button>
+          <BotonCampana />
+          <BotonPerfil />
         </div>
       </header>
 
@@ -99,7 +99,7 @@ export default function ShellDocente({
       <nav className="dd-bottom-nav" aria-label="Navegación principal">
         {menu === MENU ? (
           <>
-            <Link href="/docente" aria-current={pathname === "/" || pathname === "/docente" ? "page" : undefined} aria-label="Inicio"><House /></Link>
+            <Link href="/" aria-current={pathname === "/" ? "page" : undefined} aria-label="Inicio"><House /></Link>
             <Link href="/docente/solicitar" aria-current={esActivo("/docente/solicitar") ? "page" : undefined} aria-label="Nueva reserva"><Plus /></Link>
             <Link href="/docente/reservas" aria-current={esActivo("/docente/reservas") ? "page" : undefined} aria-label="Mis reservas"><ClipboardCheck /></Link>
           </>

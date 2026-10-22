@@ -119,9 +119,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const salir = useCallback(async () => {
-    await supabase.auth.signOut();
-  }, []);
+const salir = useCallback(async () => {
+  try {
+    // "local" borra la sesión de este dispositivo sin depender de la red
+    await supabase.auth.signOut({ scope: "local" });
+  } finally {
+    // recarga limpia: vacía en memoria perfil, avisos y la conexión en tiempo real
+    window.location.replace("/");
+  }
+}, []);
 
   const valor = useMemo(
     () => ({ session, perfil, cargando, entrar, registrar, salir }),

@@ -4,9 +4,9 @@ import Link from "next/link";
 import { Check, ArrowLeft, ArrowRight, Send } from "lucide-react";
 import ShellDocente, { type ItemMenu } from "@/components/docente/ShellDocente";
 import { CARRERAS, PERIODOS } from "@/lib/datos";
-
-/* TODO: reemplazar por el usuario logueado cuando tengas la sesión */
-const USUARIO = "Juan Pérez";
+import { crearFalla } from "@/lib/fallas";
+import { mensajeError } from "@/lib/reservas";
+import { usePerfil } from "@/lib/perfil";
 
 const PASOS = ["Equipo", "Falla", "Revisión"];
 
@@ -58,11 +58,15 @@ function Fila({ k, v }: { k: string; v: string }) {
 }
 
 export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
+  const perfil = usePerfil();
+  const nombre = perfil?.nombre ?? "";
   const [paso, setPaso] = useState(0);
   const [datos, setDatos] = useState<Datos>(inicial);
   const [tipos, setTipos] = useState<string[]>([]);
   const [errores, setErrores] = useState<Errores>({});
   const [enviado, setEnviado] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState("");
 
   const set = (k: keyof Datos) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -102,18 +106,30 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
     if (Object.keys(er).length === 0) ir(paso + 1);
   };
 
-  const enviar = (e: React.FormEvent) => {
+  const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (paso !== 2) return;
-    // TODO: aquí va lo que hacía <Formulario> al enviar (API, localStorage, etc.).
-    setEnviado(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (paso !== 2 || enviando) return;
+    setEnviando(true);
+    setErrorEnvio("");
+    try {
+      await crearFalla({
+        equipo: datos.equipo, aula: datos.aula, carrera: datos.carrera,
+        periodo: datos.periodo, tipos, descripcion: datos.descripcion,
+      });
+      setEnviado(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setErrorEnvio(mensajeError(err));
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const nuevo = () => {
     setDatos(inicial());
     setTipos([]);
     setErrores({});
+    setErrorEnvio("");
     setPaso(0);
     setEnviado(false);
   };
@@ -167,7 +183,7 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
             <legend className="ss-legend">¿Dónde está el equipo?</legend>
             <div className="ss-row">
               <Grupo id="nombre" label="Nombres y apellidos">
-                <input className="input" id="nombre" value={USUARIO} readOnly />
+                <input className="input" id="nombre" value={nombre} readOnly />
               </Grupo>
               <Grupo id="fecha" label="Fecha de la falla" error={errores.fecha}>
                 <input
@@ -250,7 +266,7 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
                 <button type="button" className="ss-link" onClick={() => ir(0)}>Editar</button>
               </div>
               <dl className="ss-sum__list">
-                <Fila k="Reportado por" v={USUARIO} />
+                <Fila k="Reportado por" v={nombre || "—"} />
                 <Fila k="Fecha" v={formatoFecha(datos.fecha)} />
                 <Fila k="Equipo" v={datos.equipo || "—"} />
                 <Fila k="Aula" v={datos.aula || "—"} />
@@ -271,6 +287,8 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
             </section>
           </fieldset>
 
+          {errorEnvio && <p className="ss-error" role="alert">{errorEnvio}</p>}
+
           <div className="ss-actions">
             <Link href="/" className="ss-btn ss-btn--danger">Cancelar</Link>
             <div className="ss-actions__nav">
@@ -284,8 +302,8 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
                   Siguiente <ArrowRight size={16} />
                 </button>
               ) : (
-                <button type="submit" className="ss-btn ss-btn--primary">
-                  <Send size={16} /> Enviar reporte
+                <button type="submit" className="ss-btn ss-btn--primary" disabled={enviando}>
+                  <Send size={16} /> {enviando ? "Enviando…" : "Enviar reporte"}
                 </button>
               )}
             </div>

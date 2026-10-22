@@ -1,32 +1,20 @@
 "use client";
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
 import { Wrench, Check, X, Clock, ArrowLeft, ArrowRight, Send, Plus, ClipboardCheck } from "lucide-react";
 import ShellDocente, { MENU_TECNICO } from "@/components/docente/ShellDocente";
 import { Firma } from "@/components/ui";
 import { LABS, PERIODOS } from "@/lib/datos";
+import {
+  cargarFallas, marcarEnReparacion, guardarMantenimiento,
+  type FallaTec, type EstadoFalla,
+} from "@/lib/fallas";
+import { mensajeError } from "@/lib/reservas";
+import { usePerfil } from "@/lib/perfil";
 
-type Estado = "abierta" | "reparacion" | "resuelta" | "baja";
+type Estado = EstadoFalla;
 type Paso = "done" | "current" | "todo";
 type EstadoFinal = "Reparado" | "En espera de repuesto" | "Dado de baja";
-
-type Falla = {
-  id: number;
-  equipo: string;
-  lab: string;
-  falla: string;
-  fecha: string;
-  quien: string;
-  estado: Estado;
-  diagnostico?: string;
-};
-
-/* ---------- BASE DE DATOS FALSA (solo para ver los estados) ----------
-   Cuando tengas la API real, reemplaza este arreglo por tu fetch. */
-const MOCK: Falla[] = [
-  { id: 1, equipo: "PC 14", lab: "201", falla: "Sin acceso a internet", fecha: "14/10/2026", quien: "Ana Mora", estado: "abierta" },
-  { id: 2, equipo: "PC 03", lab: "103", falla: "Pantalla azul", fecha: "12/10/2026", quien: "Luis Vera", estado: "reparacion" },
-  { id: 3, equipo: "Proyector", lab: "204", falla: "No enciende", fecha: "09/10/2026", quien: "Rosa Pinto", estado: "resuelta", diagnostico: "Cable de poder dañado, se reemplazó." },
-];
 
 const PASOS: Record<Estado, Paso[]> = {
   abierta: ["done", "current", "todo", "todo"],
@@ -43,6 +31,7 @@ const CSS_ESTADO: Record<Estado, string> = {
   resuelta: "aprobado",
   baja: "finalizado",
 };
+
 const BADGE: Record<Estado, { t: string; i: React.ReactNode }> = {
   abierta: { t: "Abierta", i: <Clock size={12} /> },
   reparacion: { t: "En reparación", i: <Wrench size={12} /> },
@@ -63,7 +52,8 @@ const FILTROS: { id: Filtro; t: string }[] = [
   { id: "reparacion", t: "En reparación" },
   { id: "cerradas", t: "Cerradas" },
 ];
-const coincide = (f: Falla, filtro: Filtro) =>
+
+const coincide = (f: FallaTec, filtro: Filtro) =>
   filtro === "todas" ||
   (filtro === "cerradas" ? f.estado === "resuelta" || f.estado === "baja" : f.estado === filtro);
 
@@ -87,6 +77,9 @@ const formatoFecha = (iso: string) => {
   return `${d}/${m}/${y}`;
 };
 
+/* El aula de una falla reportada es texto libre ("Laboratorio 203", "203"…): se extrae el número. */
+const numeroLab = (aula: string) => aula.match(/\d{3}/)?.[0] ?? "";
+
 function Grupo({
   id, label, error, children,
 }: { id: string; label: string; error?: string; children: React.ReactNode }) {
@@ -109,18 +102,22 @@ function Fila({ k, v }: { k: string; v: string }) {
 }
 
 function FormMantenimiento({
-  base, onGuardar, onCancelar,
+  base, tecnicoNombre, onGuardar, onCancelar,
 }: {
-  base: Falla | null;
-  onGuardar: (d: Datos, id: number | null) => void;
+  base: FallaTec | null;
+  tecnicoNombre: string;
+  onGuardar: (d: Datos, id: string | null) => Promise<void>;
   onCancelar: () => void;
 }) {
   const [paso, setPaso] = useState(0);
   const [d, setD] = useState<Datos>({
-    tecnico: "", periodo: PERIODOS[0] ?? "", lab: base?.lab ?? "", equipo: base?.equipo ?? "",
-    fecha: hoyISO(), final: "", falla: base?.falla ?? "", diagnostico: "", repuestos: "",
+    tecnico: tecnicoNombre, periodo: PERIODOS[0] ?? "", lab: base ? numeroLab(base.aula) : "",
+    equipo: base?.equipo ?? "", fecha: hoyISO(), final: "",
+    falla: base?.falla ?? "", diagnostico: "", repuestos: "",
   });
   const [errores, setErrores] = useState<Errores>({});
+  const [enviando, setEnviando] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState("");
 
   const set = (k: keyof Datos) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -156,15 +153,24 @@ function FormMantenimiento({
     setPaso(n);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
   const siguiente = () => {
     const er = validar(paso);
     setErrores(er);
     if (Object.keys(er).length === 0) ir(paso + 1);
   };
-  const enviar = (e: React.FormEvent) => {
+
+  const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (paso !== 2) return;
-    onGuardar(d, base?.id ?? null);
+    if (paso !== 2 || enviando) return;
+    setEnviando(true);
+    setErrorEnvio("");
+    try {
+      await onGuardar(d, base?.id ?? null);
+    } catch (err) {
+      setErrorEnvio(mensajeError(err));
+      setEnviando(false);
+    }
   };
 
   return (
@@ -187,7 +193,6 @@ function FormMantenimiento({
         <fieldset className="ss-fieldset" hidden={paso !== 0}>
           <legend className="ss-legend">¿Qué equipo atendiste?</legend>
           <Grupo id="tecnico" label="Técnico responsable" error={errores.tecnico}>
-            {/* TODO: rellenar con el técnico logueado cuando tengas la sesión */}
             <input className="input" {...attrs("tecnico")} value={d.tecnico} onChange={set("tecnico")} placeholder="Nombres y apellidos" />
           </Grupo>
           <div className="ss-row">
@@ -218,7 +223,6 @@ function FormMantenimiento({
         {/* Paso 2 */}
         <fieldset className="ss-fieldset" hidden={paso !== 1}>
           <legend className="ss-legend">¿Qué hiciste?</legend>
-
           <div className="ss-group" role="radiogroup" aria-labelledby="final-label">
             <span id="final-label" className="ss-label">Estado final del equipo</span>
             <div className="ss-labs">
@@ -243,7 +247,6 @@ function FormMantenimiento({
             </div>
             {errores.final && <p className="ss-error" role="alert">{errores.final}</p>}
           </div>
-
           <Grupo id="falla" label="Falla reportada (opcional)">
             <textarea className="input" rows={2} id="falla" value={d.falla} onChange={set("falla")} placeholder="Ej: No enciende" />
           </Grupo>
@@ -265,6 +268,7 @@ function FormMantenimiento({
         {/* Paso 3 */}
         <fieldset className="ss-fieldset" hidden={paso !== 2}>
           <legend className="ss-legend">Revisa y firma</legend>
+
           <section className="ss-sum">
             <div className="ss-sum__head">
               <h3 className="ss-sum__title">Equipo</h3>
@@ -278,6 +282,7 @@ function FormMantenimiento({
               <Fila k="Fecha" v={formatoFecha(d.fecha)} />
             </dl>
           </section>
+
           <section className="ss-sum">
             <div className="ss-sum__head">
               <h3 className="ss-sum__title">Trabajo realizado</h3>
@@ -290,8 +295,11 @@ function FormMantenimiento({
               <Fila k="Repuestos" v={d.repuestos.trim() || "Ninguno"} />
             </dl>
           </section>
+
           <Firma label="Firma del técnico" />
         </fieldset>
+
+        {errorEnvio && <p className="ss-error" role="alert">{errorEnvio}</p>}
 
         <div className="ss-actions">
           <button type="button" className="ss-btn ss-btn--danger" onClick={onCancelar}>Cancelar</button>
@@ -306,8 +314,8 @@ function FormMantenimiento({
                 Siguiente <ArrowRight size={16} />
               </button>
             ) : (
-              <button type="submit" className="ss-btn ss-btn--primary">
-                <Send size={16} /> Guardar mantenimiento
+              <button type="submit" className="ss-btn ss-btn--primary" disabled={enviando}>
+                <Send size={16} /> {enviando ? "Guardando…" : "Guardar mantenimiento"}
               </button>
             )}
           </div>
@@ -320,38 +328,48 @@ function FormMantenimiento({
 /* ============================== Página ============================== */
 
 export default function Mantenimiento() {
-  const [items, setItems] = useState<Falla[]>(MOCK);
+  const perfil = usePerfil();
+  const [items, setItems] = useState<FallaTec[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [vista, setVista] = useState<"lista" | "form" | "ok">("lista");
-  const [base, setBase] = useState<Falla | null>(null);
+  const [base, setBase] = useState<FallaTec | null>(null);
   const [guardado, setGuardado] = useState<Datos | null>(null);
+
+  const recargar = () =>
+    cargarFallas().then(setItems).catch((e) => setError(mensajeError(e)));
+
+  useEffect(() => {
+    recargar().finally(() => setCargando(false));
+  }, []);
 
   const contar = (f: Filtro) => items.filter((i) => coincide(i, f)).length;
   const visibles = items.filter((i) => coincide(i, filtro));
 
-  const abrirForm = (f: Falla | null) => {
+  const abrirForm = (f: FallaTec | null) => {
     setBase(f);
     setVista("form");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const marcarReparacion = (id: number) =>
-    setItems((xs) => xs.map((x) => (x.id === id ? { ...x, estado: "reparacion" } : x)));
+  const marcarReparacion = async (id: string) => {
+    setError("");
+    try {
+      await marcarEnReparacion(id);
+      setItems((xs) => xs.map((x) => (x.id === id ? { ...x, estado: "reparacion" } : x)));
+    } catch (e) {
+      setError(mensajeError(e));
+    }
+  };
 
-  const guardar = (d: Datos, id: number | null) => {
-    // TODO: aquí va lo que hacía <Formulario> al guardar (API, localStorage, etc.).
-    const estado = A_ESTADO[d.final as EstadoFinal];
-    setItems((xs) =>
-      id !== null
-        ? xs.map((x) => (x.id === id ? { ...x, estado, diagnostico: d.diagnostico.trim() } : x))
-        : [
-            {
-              id: Date.now(), equipo: d.equipo.trim(), lab: d.lab, falla: d.falla.trim() || "Mantenimiento",
-              fecha: formatoFecha(d.fecha), quien: "Registro del técnico", estado, diagnostico: d.diagnostico.trim(),
-            },
-            ...xs,
-          ],
-    );
+  const guardar = async (d: Datos, id: string | null) => {
+    await guardarMantenimiento(id, {
+      lab: d.lab, periodo: d.periodo, equipo: d.equipo,
+      estado: A_ESTADO[d.final as EstadoFinal],
+      falla: d.falla, diagnostico: d.diagnostico, repuestos: d.repuestos,
+    });
+    await recargar();
     setGuardado(d);
     setVista("ok");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -380,9 +398,12 @@ export default function Mantenimiento() {
       <ShellDocente menu={MENU_TECNICO}>
         <h1 className="dd-title">Registrar mantenimiento</h1>
         <p className="dd-subtitle">
-          {base ? `Equipo ${base.equipo}, Laboratorio ${base.lab}.` : "Registra una reparación o una revisión."}
+          {base ? `Equipo ${base.equipo}, ${base.aula}.` : "Registra una reparación o una revisión."}
         </p>
-        <FormMantenimiento base={base} onGuardar={guardar} onCancelar={() => setVista("lista")} />
+        <FormMantenimiento
+          base={base} tecnicoNombre={perfil?.nombre ?? ""}
+          onGuardar={guardar} onCancelar={() => setVista("lista")}
+        />
       </ShellDocente>
     );
   }
@@ -414,7 +435,11 @@ export default function Mantenimiento() {
           ))}
         </div>
 
-        {visibles.length === 0 ? (
+        {error && <p className="ss-error" role="alert">{error}</p>}
+
+        {cargando ? (
+          <p className="dd-section-sub" style={{ marginTop: 14 }}>Cargando fallas…</p>
+        ) : visibles.length === 0 ? (
           <div className="dd-empty" role="status">
             <span className="dd-empty__icon"><ClipboardCheck size={28} /></span>
             <p className="dd-empty__title">No hay fallas</p>
@@ -426,7 +451,7 @@ export default function Mantenimiento() {
           <div className="dd-list">
             {visibles.map((f) => {
               const pasos = PASOS[f.estado];
-              const meta = [f.fecha, `Laboratorio ${f.lab}`, f.falla, `Reportó\n${f.quien}`];
+              const meta = [f.fecha, f.aula, f.falla, `Reportó\n${f.quien}`];
               const abierta = f.estado === "abierta" || f.estado === "reparacion";
               return (
                 <article key={f.id} className="dd-card" data-estado={CSS_ESTADO[f.estado]}>
@@ -434,7 +459,7 @@ export default function Mantenimiento() {
                     <span className="dd-card__avatar"><Wrench size={20} /></span>
                     <div className="dd-card__info">
                       <h3 className="dd-card__name">{f.equipo}</h3>
-                      <p className="dd-card__place">Laboratorio {f.lab}, {f.falla}</p>
+                      <p className="dd-card__place">{f.aula}, {f.falla}</p>
                     </div>
                     <span className="dd-badge">{BADGE[f.estado].i}{BADGE[f.estado].t}</span>
                   </div>

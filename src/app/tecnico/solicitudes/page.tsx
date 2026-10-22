@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Monitor, Check, X, Clock, ClipboardCheck, TriangleAlert } from "lucide-react";
 import ShellDocente, { MENU_TECNICO } from "@/components/docente/ShellDocente";
+import SolicitudesMaterial from "@/components/Solicitudesmateriales";
 import {
   cargarSolicitudes, responderReserva, mensajeError, fechaLarga,
   type SolicitudTec,
@@ -41,6 +42,7 @@ export default function Solicitudes() {
   const [items, setItems] = useState<SolicitudTec[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
+  const [tipo, setTipo] = useState<"laboratorio" | "material">("laboratorio");
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [busqueda, setBusqueda] = useState("");
   const [rechazando, setRechazando] = useState<string | null>(null);
@@ -92,8 +94,21 @@ export default function Solicitudes() {
   return (
     <ShellDocente menu={MENU_TECNICO}>
       <h1 className="dd-title">Solicitudes</h1>
-      <p className="dd-subtitle">Revisa y responde las reservas de laboratorio.</p>
+      <p className="dd-subtitle">Revisa y responde las reservas de laboratorio y los pedidos de material.</p>
 
+      <div className="dd-chips" role="tablist" aria-label="Tipo de solicitud">
+        {([["laboratorio", "Laboratorios"], ["material", "Material"]] as const).map(([id, t]) => (
+          <button
+            key={id} role="tab" aria-selected={tipo === id}
+            className={`dd-chip ${tipo === id ? "is-active" : ""}`}
+            onClick={() => setTipo(id)}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {tipo === "material" ? <SolicitudesMaterial /> : (
       <section className="dd-reservas">
         <div className="dd-chips" role="tablist" aria-label="Filtrar solicitudes">
           {FILTROS.map((f) => (
@@ -222,6 +237,7 @@ export default function Solicitudes() {
           </div>
         )}
       </section>
+      )}
     </ShellDocente>
   );
 }

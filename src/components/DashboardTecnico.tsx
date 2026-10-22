@@ -1,54 +1,23 @@
 "use client";
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Monitor, Package, Wrench, Eye, Check, X, Clock, ClipboardCheck } from "lucide-react";
 import ShellDocente, { MENU_TECNICO } from "@/components/docente/ShellDocente";
+import {
+  cargarSolicitudes, responderReserva, mensajeError, fechaLarga,
+  type SolicitudTec,
+} from "@/lib/reservas";
+import { contarPendientes } from "@/lib/pendientes";
 
-type Tipo = "laboratorio" | "material" | "falla";
-type Estado = "pendiente" | "aprobado" | "rechazado";
+type Estado = SolicitudTec["estado"];
 
-type Solicitud = {
-  id: number;
-  tipo: Tipo;
-  titulo: string;
-  detalle: string;
-  fecha: string;
-  solicitante: string;
-  rol: "Docente" | "Estudiante";
-  estado: Estado;
-};
-
-/* ---------- BASE DE DATOS FALSA (solo para ver los estados) ----------
-   Pon USAR_MOCK en false para ver el mensaje "No hay solicitudes".
-   Cuando tengas la API real, reemplaza el estado inicial por tu fetch. */
-const USAR_MOCK = true;
-
-const MOCK: Solicitud[] = [
-  { id: 1, tipo: "laboratorio", titulo: "Laboratorio 203", detalle: "14 Oct 2026, 10:00 - 12:00, 25 estudiantes", fecha: "14 Oct 2026", solicitante: "Juan Pérez", rol: "Docente", estado: "pendiente" },
-  { id: 2, tipo: "falla", titulo: "Falla en PC-12", detalle: "Laboratorio 203, no enciende", fecha: "14 Oct 2026", solicitante: "Ana Mora", rol: "Estudiante", estado: "pendiente" },
-  { id: 3, tipo: "material", titulo: "Cable HDMI × 2, Mouse × 1", detalle: "Para el Laboratorio 105", fecha: "13 Oct 2026", solicitante: "Juan Pérez", rol: "Docente", estado: "pendiente" },
-  { id: 4, tipo: "laboratorio", titulo: "Laboratorio 105", detalle: "15 Oct 2026, 08:00 - 10:00, 20 estudiantes", fecha: "12 Oct 2026", solicitante: "Juan Pérez", rol: "Docente", estado: "aprobado" },
-  { id: 5, tipo: "falla", titulo: "Falla en PC-03", detalle: "Laboratorio 301, mouse/teclado no responde", fecha: "09 Oct 2026", solicitante: "Luis Vera", rol: "Estudiante", estado: "aprobado" },
-  { id: 6, tipo: "material", titulo: "Disco duro × 3", detalle: "Para el Laboratorio 203", fecha: "08 Oct 2026", solicitante: "Juan Pérez", rol: "Docente", estado: "rechazado" },
-];
-
-const ICONO: Record<Tipo, React.ReactNode> = {
-  laboratorio: <Monitor size={20} />,
-  material: <Package size={20} />,
-  falla: <Wrench size={20} />,
-};
-const NOMBRE_TIPO: Record<Tipo, string> = {
-  laboratorio: "Laboratorios",
-  material: "Material",
-  falla: "Fallas",
-};
-
-const etiqueta = (s: Solicitud) =>
-  s.estado === "pendiente"
+const etiqueta = (estado: Estado) =>
+  estado === "pendiente"
     ? { t: "Pendiente", i: <Clock size={12} /> }
-    : s.estado === "rechazado"
+    : estado === "rechazado"
       ? { t: "Rechazada", i: <X size={12} /> }
-      : { t: s.tipo === "falla" ? "Atendida" : "Aprobada", i: <Check size={12} /> };
+      : { t: "Aprobada", i: <Check size={12} /> };
 
 type Filtro = "todas" | Estado;
 const FILTROS: { id: Filtro; t: string }[] = [
@@ -59,33 +28,30 @@ const FILTROS: { id: Filtro; t: string }[] = [
 ];
 
 function Tarjeta({
-  s, onCambiar,
-}: { s: Solicitud; onCambiar: (id: number, e: Estado) => void }) {
-  const e = etiqueta(s);
+  s, ocupado, onCambiar,
+}: { s: SolicitudTec; ocupado: boolean; onCambiar: (id: string, e: "aprobada" | "rechazada") => void }) {
+  const e = etiqueta(s.estado);
   return (
     <article className="dd-card" data-estado={s.estado}>
       <div className="dd-card__top">
-        <span className="dd-card__avatar">{ICONO[s.tipo]}</span>
+        <span className="dd-card__avatar"><Monitor size={20} /></span>
         <div className="dd-card__info">
-          <h3 className="dd-card__name">{s.titulo}</h3>
-          <p className="dd-card__place">{s.detalle}</p>
+          <h3 className="dd-card__name">Laboratorio {s.lab}</h3>
+          <p className="dd-card__place">{fechaLarga(s.fecha)}, {s.inicio} - {s.fin}, {s.est} estudiantes</p>
         </div>
         <span className="dd-badge">{e.i}{e.t}</span>
       </div>
-
-      <p className="tt-meta">
-        Pedido el {s.fecha} por {s.solicitante} ({s.rol})
-      </p>
-
+      <p className="tt-meta">Solicitado por {s.docente} (Docente)</p>
+      {s.estado === "rechazado" && s.motivo && <p className="tt-meta">Motivo del rechazo: {s.motivo}</p>}
       <div className="dd-card__actions">
-        <button className="dd-btn dd-btn--ghost"><Eye /> Ver detalles</button>
+        <Link href="/tecnico/solicitudes" className="dd-btn dd-btn--ghost"><Eye /> Ver detalles</Link>
         {s.estado === "pendiente" && (
           <div className="tt-btns">
-            <button className="dd-btn dd-btn--danger" onClick={() => onCambiar(s.id, "rechazado")}>
+            <button className="dd-btn dd-btn--danger" disabled={ocupado} onClick={() => onCambiar(s.id, "rechazada")}>
               <X /> Rechazar
             </button>
-            <button className="dd-btn dd-btn--primary" onClick={() => onCambiar(s.id, "aprobado")}>
-              <Check /> {s.tipo === "falla" ? "Atender" : "Aprobar"}
+            <button className="dd-btn dd-btn--primary" disabled={ocupado} onClick={() => onCambiar(s.id, "aprobada")}>
+              <Check /> Aprobar
             </button>
           </div>
         )}
@@ -95,16 +61,48 @@ function Tarjeta({
 }
 
 export default function DashboardTecnico() {
-  const [items, setItems] = useState<Solicitud[]>(USAR_MOCK ? MOCK : []);
+  const [items, setItems] = useState<SolicitudTec[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
+  const [ocupado, setOcupado] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("todas");
+  const [extra, setExtra] = useState({ material: 0, fallas: 0 });
 
-  const cambiar = (id: number, estado: Estado) =>
-    setItems((xs) => xs.map((x) => (x.id === id ? { ...x, estado } : x)));
+  useEffect(() => {
+    cargarSolicitudes()
+      .then(setItems)
+      .catch((e) => setError(mensajeError(e)))
+      .finally(() => setCargando(false));
+  }, []);
+
+  useEffect(() => {
+    contarPendientes().then(setExtra).catch(() => {});
+  }, []);
+
+  const cambiar = async (id: string, estado: "aprobada" | "rechazada") => {
+    setError(""); setOcupado(id);
+    try {
+      await responderReserva(id, estado);
+      setItems((xs) =>
+        xs.map((x) => (x.id === id ? { ...x, estado: estado === "aprobada" ? "aprobado" : "rechazado" } : x)),
+      );
+    } catch (e) {
+      setError(mensajeError(e));
+    } finally {
+      setOcupado(null);
+    }
+  };
 
   const contar = (f: Filtro) => (f === "todas" ? items.length : items.filter((i) => i.estado === f).length);
   const visibles = filtro === "todas" ? items : items.filter((i) => i.estado === filtro);
-  const pendientesDe = (t: Tipo) => items.filter((i) => i.tipo === t && i.estado === "pendiente").length;
   const pendientes = items.filter((i) => i.estado === "pendiente").length;
+
+  const resumen = [
+    { t: "Laboratorios", n: pendientes, icono: <Monitor size={20} /> },
+    { t: "Material", n: extra.material, icono: <Package size={20} /> },
+    { t: "Fallas", n: extra.fallas, icono: <Wrench size={20} /> },
+  ];
+  const porAtender = pendientes + extra.material + extra.fallas;
 
   return (
     <ShellDocente menu={MENU_TECNICO}>
@@ -115,16 +113,16 @@ export default function DashboardTecnico() {
         <div className="tt-stat tt-stat--main">
           <span className="tt-stat__icon"><ClipboardCheck size={20} /></span>
           <div>
-            <p className="tt-stat__n">{pendientes}</p>
+            <p className="tt-stat__n">{porAtender}</p>
             <p className="tt-stat__t">Por atender</p>
           </div>
         </div>
-        {(["laboratorio", "material", "falla"] as Tipo[]).map((t) => (
-          <div key={t} className="tt-stat">
-            <span className="tt-stat__icon">{ICONO[t]}</span>
+        {resumen.map((r) => (
+          <div key={r.t} className="tt-stat">
+            <span className="tt-stat__icon">{r.icono}</span>
             <div>
-              <p className="tt-stat__n">{pendientesDe(t)}</p>
-              <p className="tt-stat__t">{NOMBRE_TIPO[t]}</p>
+              <p className="tt-stat__n">{r.n}</p>
+              <p className="tt-stat__t">{r.t}</p>
             </div>
           </div>
         ))}
@@ -147,7 +145,6 @@ export default function DashboardTecnico() {
         <div className="dd-reservas__head">
           <h2 className="dd-section-title">Solicitudes</h2>
         </div>
-
         <div className="dd-chips" role="tablist" aria-label="Filtrar solicitudes">
           {FILTROS.map((f) => (
             <button
@@ -162,7 +159,11 @@ export default function DashboardTecnico() {
           ))}
         </div>
 
-        {visibles.length === 0 ? (
+        {error && <p className="ss-error" role="alert">{error}</p>}
+
+        {cargando ? (
+          <p className="dd-section-sub" style={{ marginTop: 14 }}>Cargando solicitudes…</p>
+        ) : visibles.length === 0 ? (
           <div className="dd-empty" role="status">
             <span className="dd-empty__icon"><ClipboardCheck size={28} /></span>
             <p className="dd-empty__title">No hay solicitudes</p>
@@ -174,7 +175,9 @@ export default function DashboardTecnico() {
           </div>
         ) : (
           <div className="dd-list">
-            {visibles.map((s) => <Tarjeta key={s.id} s={s} onCambiar={cambiar} />)}
+            {visibles.map((s) => (
+              <Tarjeta key={s.id} s={s} ocupado={ocupado === s.id} onCambiar={cambiar} />
+            ))}
           </div>
         )}
       </section>
