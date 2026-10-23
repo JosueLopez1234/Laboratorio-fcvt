@@ -57,6 +57,7 @@ export function mensajeError(err: unknown): string {
   if (msg.includes("clase en ese horario")) return "El laboratorio tiene clase en ese horario.";
   if (msg.includes("reservas_sin_cruce")) return "Ya hay una reserva aprobada en ese laboratorio y horario.";
   if (msg.includes("row-level security")) return "Tu cuenta no tiene permiso para esta acción.";
+  if (msg.includes("reservas_solo_laborables")) return "Solo se pueden reservar de lunes a viernes.";
   return msg || "Ocurrió un error. Intenta de nuevo.";
 }
 
@@ -172,4 +173,41 @@ export async function responderReserva(id: string, estado: "aprobada" | "rechaza
     .select("id");
   if (error) throw error;
   if (!data?.length) throw new Error("No se pudo actualizar la solicitud.");
+}
+
+/** Reservas aprobadas de hoy: [laboratorio, horaInicio, horaFin, docente] */
+export type OcupacionHoy = { lab: string; ini: number; fin: number; docente: string; asignatura: string };
+
+export async function cargarReservasHoy(): Promise<OcupacionHoy[]> {
+  const d = new Date();
+  const hoy = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const { data, error } = await supabase
+    .from("reservas")
+    .select("laboratorio_id, hora_inicio, hora_fin, asignatura, perfiles(nombre)")
+    .eq("estado", "aprobada")
+    .eq("fecha", hoy);
+  if (error) throw error;
+  return ((data ?? []) as unknown as {
+    laboratorio_id: string; hora_inicio: string; hora_fin: string;
+    asignatura: string; perfiles: { nombre: string } | null;
+  }[]).map((f) => ({
+    lab: f.laboratorio_id,
+    ini: aHoras(f.hora_inicio),
+    fin: aHoras(f.hora_fin),
+    docente: f.perfiles?.nombre ?? "—",
+    asignatura: f.asignatura,
+  }));
+}
+
+export type OcupacionDia = { lab: string; ini: number; fin: number };
+
+/** Reservas aprobadas de una fecha (solo lab y horas, sin datos personales). */
+export async function cargarOcupacionFecha(fecha: string): Promise<OcupacionDia[]> {
+  const { data, error } = await supabase.rpc("ocupacion_fecha", { p_fecha: fecha });
+  if (error) throw error;
+  return ((data ?? []) as { laboratorio_id: string; hora_inicio: string; hora_fin: string }[]).map((r) => ({
+    lab: r.laboratorio_id,
+    ini: aHoras(r.hora_inicio),
+    fin: aHoras(r.hora_fin),
+  }));
 }
