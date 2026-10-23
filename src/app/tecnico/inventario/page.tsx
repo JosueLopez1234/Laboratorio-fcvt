@@ -1,11 +1,8 @@
 "use client";
 
-import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
-import * as XLSX from "xlsx";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Search,
-  Upload,
-  FileSpreadsheet,
   Package,
   ClipboardList,
   CircleAlert,
@@ -30,22 +27,11 @@ import {
   Monitor,
   Eye,
   Tag,
+  Database,
+  LoaderCircle,
 } from "lucide-react";
 import { Pantalla } from "@/components/ui";
-
-type Columnas = {
-  filaEncabezado: number;
-  item: number;
-  cantidad: number;
-  detalle: number;
-  marca: number;
-  serie: number;
-  codigo: number;
-  custodioAnterior: number;
-  observaciones: number[];
-  custodio: number;
-  ubicacion: number;
-};
+import { supabase } from "@/lib/supabase";
 
 type Bien = {
   clave: string;
@@ -63,6 +49,51 @@ type Bien = {
   ubicacion: string;
   grupo: string;
 };
+
+type BienDB = {
+  id: string;
+  clave_origen: string;
+  hoja: string;
+  facultad: string;
+  fila_excel: number;
+  item: string | number;
+  cantidad: string | number;
+  detalle: string | null;
+  marca: string | null;
+  serie: string | null;
+  codigo: string | null;
+  custodio_anterior: string | null;
+  observacion_1: string | null;
+  observacion_2: string | null;
+  custodio: string | null;
+  ubicacion: string | null;
+  grupo: string | null;
+};
+
+const HOJAS_INVENTARIO = [
+  { value: "INFORMATICA", label: "Informática", facultad: "Ciencias Informáticas" },
+  { value: "AGROPECUARIA", label: "Agropecuaria", facultad: "Ciencias Agropecuarias" },
+  { value: "BIOLOGIA PESQUERA", label: "Biología Pesquera", facultad: "Biología Pesquera" },
+] as const;
+
+function convertirFilaDB(row: BienDB): Bien {
+  return {
+    clave: row.clave_origen || row.id,
+    hoja: row.hoja,
+    item: String(row.item ?? ""),
+    cantidad: Number(row.cantidad ?? 0),
+    detalle: row.detalle ?? "",
+    marca: row.marca ?? "",
+    serie: row.serie ?? "",
+    codigo: row.codigo ?? "",
+    custodioAnterior: row.custodio_anterior ?? "",
+    observacion: row.observacion_1 ?? "",
+    observacion2: row.observacion_2 ?? "",
+    custodio: row.custodio ?? "",
+    ubicacion: row.ubicacion ?? "",
+    grupo: row.grupo ?? "",
+  };
+}
 
 type EstadoInventario = "Registrado" | "Sin código" | "Por verificar" | "De baja" | "Entregado" | "Sin observación" | "Otra observación";
 
@@ -87,129 +118,6 @@ function normalizar(valor: unknown): string {
     .replace(/[^A-Z0-9]+/g, " ")
     .trim()
     .replace(/\s+/g, " ");
-}
-
-function texto(fila: unknown[], columna: number): string {
-  if (columna < 0 || columna >= fila.length) return "";
-  return String(fila[columna] ?? "").trim();
-}
-
-function numero(valor: string): number {
-  const limpio = valor.replace(/\s/g, "").replace(",", ".");
-  return limpio ? Number(limpio) : Number.NaN;
-}
-
-function indiceEncabezado(encabezados: string[], candidatos: string[]): number {
-  // Primero prioriza coincidencias exactas: CUSTODIO no debe confundirse
-  // con CUSTODIO ANTERIOR en las hojas Agropecuaria y Biología Pesquera.
-  const exacto = encabezados.findIndex((h) => candidatos.includes(h));
-  if (exacto >= 0) return exacto;
-  return encabezados.findIndex((h) =>
-    candidatos.some((c) => h.startsWith(`${c} `))
-  );
-}
-
-function detectarColumnas(fila: unknown[], filaEncabezado: number): Columnas | null {
-  const encabezados = fila.map(normalizar);
-  const buscar = (...candidatos: string[]) => indiceEncabezado(encabezados, candidatos);
-
-  const item = buscar("ITEM", "ITEMS", "N ITEM", "NUMERO DE ITEM");
-  const cantidad = buscar("CANT", "CANTIDAD", "CANTIDAD DE BIENES");
-  const detalle = buscar("DETALLE", "DESCRIPCION", "DESCRIPCION DEL BIEN");
-  if (item < 0 || cantidad < 0 || detalle < 0) return null;
-
-  const observaciones = encabezados
-    .map((h, i) => (/^OBSERVACION(?:\s*\d*)?$/.test(h) ? i : -1))
-    .filter((i) => i >= 0);
-
-  return {
-    filaEncabezado,
-    item,
-    cantidad,
-    detalle,
-    marca: buscar("MARCA"),
-    serie: buscar("SERIE", "NUMERO DE SERIE"),
-    codigo: buscar("CODIGO", "CODIGO PATRIMONIAL"),
-    custodioAnterior: buscar("CUSTODIO ANTERIOR", "CUSTODIO PREVIO"),
-    observaciones,
-    custodio: buscar("CUSTODIO", "CUSTODIO ACTUAL", "RESPONSABLE ACTUAL"),
-    ubicacion: buscar("UBICACION", "LOCALIZACION"),
-  };
-}
-
-function obtenerColumnas(filas: unknown[][], nombreHoja: string): Columnas | null {
-  for (let i = 0; i < Math.min(filas.length, 50); i++) {
-    const columnas = detectarColumnas(filas[i], i);
-    if (!columnas) continue;
-
-    // En INFORMATICA, los datos del custodio están en la columna I aunque
-    // el título visual CUSTODIO esté desplazado en la fila de encabezados.
-    if (normalizar(nombreHoja) === "INFORMATICA" && columnas.custodioAnterior < 0) {
-      columnas.custodioAnterior = 8;
-    }
-    return columnas;
-  }
-  return null;
-}
-
-function leerBienes(libro: XLSX.WorkBook, nombreHoja: string): Bien[] {
-  const hoja = libro.Sheets[nombreHoja];
-  if (!hoja) return [];
-
-  const filas = XLSX.utils.sheet_to_json<unknown[]>(hoja, {
-    header: 1,
-    defval: "",
-    raw: false,
-  });
-  const columnas = obtenerColumnas(filas, nombreHoja);
-  if (!columnas) return [];
-
-  const bienes: Bien[] = [];
-  let grupoActual = "";
-  let ultimaFilaDeGrupo = -2;
-
-  for (let i = columnas.filaEncabezado + 1; i < filas.length; i++) {
-    const fila = filas[i];
-    const item = texto(fila, columnas.item);
-    const cantidadTexto = texto(fila, columnas.cantidad);
-    const detalle = texto(fila, columnas.detalle);
-    const itemNumero = numero(item);
-    const cantidad = numero(cantidadTexto);
-
-    const esBien = item !== "" && cantidadTexto !== "" && detalle !== "" &&
-      Number.isFinite(itemNumero) && Number.isFinite(cantidad);
-
-    if (esBien) {
-      bienes.push({
-        clave: `${nombreHoja}-${i + 1}-${item}`,
-        hoja: nombreHoja,
-        item,
-        cantidad,
-        detalle,
-        marca: texto(fila, columnas.marca),
-        serie: texto(fila, columnas.serie),
-        codigo: texto(fila, columnas.codigo),
-        custodioAnterior: texto(fila, columnas.custodioAnterior),
-        observacion: texto(fila, columnas.observaciones[0] ?? -1),
-        observacion2: texto(fila, columnas.observaciones[1] ?? -1),
-        custodio: texto(fila, columnas.custodio),
-        ubicacion: texto(fila, columnas.ubicacion),
-        grupo: grupoActual,
-      });
-      continue;
-    }
-
-    // Las filas sin ITEM ni CANT representan secciones o responsables.
-    if (!item && !cantidadTexto && detalle) {
-      if (i === ultimaFilaDeGrupo + 1 && grupoActual) {
-        grupoActual = `${grupoActual} / ${detalle}`;
-      } else {
-        grupoActual = detalle;
-      }
-      ultimaFilaDeGrupo = i;
-    }
-  }
-  return bienes;
 }
 
 function textoEstado(bien: Bien): string {
@@ -394,44 +302,64 @@ function VisualBien({ bien }: { bien: Bien }) {
 }
 
 export default function Inventario() {
-  const [libro, setLibro] = useState<XLSX.WorkBook | null>(null);
-  const [nombreArchivo, setNombreArchivo] = useState("");
-  const [hojaSeleccionada, setHojaSeleccionada] = useState("INFORMATICA");
+  const [registros, setRegistros] = useState<Bien[]>([]);
+  const [hojaSeleccionada, setHojaSeleccionada] = useState<string>("INFORMATICA");
   const [busqueda, setBusqueda] = useState("");
   const [filtro, setFiltro] = useState("todos");
   const [error, setError] = useState("");
+  const [cargando, setCargando] = useState(true);
+  const [actualizando, setActualizando] = useState(false);
+  const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null);
   const [pagina, setPagina] = useState(1);
   const [modoVista, setModoVista] = useState<"tarjetas" | "tabla">("tarjetas");
   const [bienExpandido, setBienExpandido] = useState<string | null>(null);
 
-  async function importarExcel(evento: ChangeEvent<HTMLInputElement>) {
-    const input = evento.currentTarget;
-    const archivo = input.files?.[0];
-    if (!archivo) return;
+  const cargarInventario = useCallback(async () => {
+    setActualizando(true);
     setError("");
     try {
-      const buffer = await archivo.arrayBuffer();
-      const nuevoLibro = XLSX.read(buffer, { type: "array" });
-      if (!nuevoLibro.SheetNames.length) {
-        setError("El archivo no contiene hojas que se puedan leer.");
-        return;
-      }
-      const hojaInicial = nuevoLibro.SheetNames.find((n) => normalizar(n) === "INFORMATICA") ?? nuevoLibro.SheetNames[0];
-      setLibro(nuevoLibro);
-      setNombreArchivo(archivo.name);
-      setHojaSeleccionada(hojaInicial);
-      setBusqueda("");
-      setFiltro("todos");
-      setPagina(1);
-    } catch {
-      setError("No se pudo leer el archivo. Selecciona un Excel válido (.xlsx o .xls).");
-    } finally {
-      input.value = "";
-    }
-  }
+      // Deja que el cliente recupere la sesión guardada antes de consultar RLS.
+      await supabase.auth.getSession();
+      const filasDB: BienDB[] = [];
+      const tamanoLote = 1000;
 
-  const nombresHojas = libro?.SheetNames ?? [];
-  const bienes = useMemo(() => (libro ? leerBienes(libro, hojaSeleccionada) : []), [libro, hojaSeleccionada]);
+      // Supabase/PostgREST limita habitualmente las respuestas. Descargamos
+      // por lotes para no perder registros de las tres facultades.
+      for (let desde = 0; ; desde += tamanoLote) {
+        const { data, error: errorConsulta } = await supabase
+          .from("bienes_inventario")
+          .select("id, clave_origen, hoja, facultad, fila_excel, item, cantidad, detalle, marca, serie, codigo, custodio_anterior, observacion_1, observacion_2, custodio, ubicacion, grupo")
+          .order("hoja", { ascending: true })
+          .order("fila_excel", { ascending: true })
+          .range(desde, desde + tamanoLote - 1);
+
+        if (errorConsulta) throw errorConsulta;
+        const lote = (data ?? []) as unknown as BienDB[];
+        filasDB.push(...lote);
+        if (lote.length < tamanoLote) break;
+      }
+
+      setRegistros(filasDB.map(convertirFilaDB));
+      setUltimaActualizacion(new Date());
+    } catch (errorConsulta: unknown) {
+      console.error("Error consultando bienes en Supabase:", errorConsulta);
+      const detalle = errorConsulta instanceof Error ? errorConsulta.message : "Error de conexión desconocido";
+      setError(`No se pudo consultar el inventario en Supabase. Verifica que ejecutaste el SQL de creación, importaste el Excel y que tu sesión tiene permiso de lectura. Detalle: ${detalle}`);
+    } finally {
+      setCargando(false);
+      setActualizando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void cargarInventario();
+  }, [cargarInventario]);
+
+  const nombresHojas = HOJAS_INVENTARIO.map((hoja) => hoja.value);
+  const bienes = useMemo(
+    () => registros.filter((bien) => bien.hoja === hojaSeleccionada),
+    [registros, hojaSeleccionada]
+  );
 
   const resumen = useMemo(() => {
     const conteo = new Map<EstadoInventario, number>();
@@ -486,7 +414,6 @@ export default function Inventario() {
   const totalPaginas = Math.max(1, Math.ceil(bienesFiltrados.length / TAMANO_PAGINA));
   const paginaSegura = Math.min(pagina, totalPaginas);
   const bienesPagina = bienesFiltrados.slice((paginaSegura - 1) * TAMANO_PAGINA, paginaSegura * TAMANO_PAGINA);
-  const porcentajeConCodigo = resumen.totalRegistros ? Math.round((resumen.conCodigo / resumen.totalRegistros) * 100) : 0;
   const maxResponsables = Math.max(1, ...resumen.responsablesTop.map((r) => r.cantidad));
 
   function limpiarFiltros() {
@@ -513,16 +440,17 @@ export default function Inventario() {
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
                   <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5"><Building2 size={14} /> {hojaSeleccionada === "INFORMATICA" ? "Ciencias Informáticas" : hojaSeleccionada === "AGROPECUARIA" ? "Ciencias Agropecuarias" : hojaSeleccionada === "BIOLOGIA PESQUERA" ? "Biología Pesquera" : hojaSeleccionada}</span>
-                  {nombreArchivo ? <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5"><FileSpreadsheet size={14} className="shrink-0 text-emerald-600" /><span className="max-w-[230px] truncate">{nombreArchivo}</span></span> : <span className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5">Fuente pendiente de cargar</span>}
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/90 px-2.5 py-1.5 text-emerald-800"><Database size={14} className="shrink-0" /> Datos guardados en Supabase</span>
+                  <span className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5">{ultimaActualizacion ? `Actualizado ${ultimaActualizacion.toLocaleTimeString("es-EC", { hour: "2-digit", minute: "2-digit" })}` : "Conectando a la base de datos…"}</span>
                 </div>
               </div>
 
               <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto xl:flex-col">
-                <label className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#ff3547] px-5 py-3 text-sm font-bold text-white shadow-[0_8px_18px_rgba(255,53,71,.22)] transition hover:bg-[#e72d3e] focus-within:ring-4 focus-within:ring-rose-100">
-                  <Upload size={18} /> {libro ? "Cambiar archivo Excel" : "Cargar archivo Excel"}
-                  <input type="file" accept=".xlsx,.xls" className="sr-only" onChange={importarExcel} />
-                </label>
-                {libro && (
+                <button type="button" onClick={() => void cargarInventario()} disabled={actualizando} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#ff3547] px-5 py-3 text-sm font-bold text-white shadow-[0_8px_18px_rgba(255,53,71,.22)] transition hover:bg-[#e72d3e] disabled:cursor-not-allowed disabled:opacity-70">
+                  {actualizando ? <LoaderCircle size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                  {actualizando ? "Actualizando…" : "Actualizar datos"}
+                </button>
+                {registros.length > 0 && (
                   <button type="button" onClick={() => exportarCSV(bienesFiltrados, hojaSeleccionada)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
                     <Download size={17} /> Exportar vista CSV
                   </button>
@@ -533,7 +461,7 @@ export default function Inventario() {
           </section>
 
           {/* Selector de hoja */}
-          {libro && (
+          {nombresHojas.length > 0 && (
             <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-sm font-extrabold text-slate-800">Área del inventario</h3>
@@ -581,11 +509,11 @@ export default function Inventario() {
           </section>
 
           {/* Gráficos */}
-          {libro && bienes.length > 0 && (
+          {bienes.length > 0 && !cargando && (
             <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_1fr]">
               <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex items-start justify-between gap-3">
-                  <div><h3 className="font-extrabold text-slate-900">Estado documental</h3><p className="mt-1 text-xs text-slate-500">Clasificación estimada a partir del código y las observaciones del Excel.</p></div>
+                  <div><h3 className="font-extrabold text-slate-900">Estado documental</h3><p className="mt-1 text-xs text-slate-500">Clasificación estimada a partir del código y las observaciones registradas.</p></div>
                   <div className="rounded-xl bg-slate-50 p-2 text-slate-500"><ChartNoAxesCombined size={19} /></div>
                 </div>
                 <div className="mt-5 flex flex-col items-center gap-5 sm:flex-row sm:items-center">
@@ -662,15 +590,21 @@ export default function Inventario() {
               </div>
             </div>
 
-            {!libro ? (
+            {cargando ? (
               <div className="flex flex-col items-center px-5 py-14 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 text-rose-600"><FileSpreadsheet size={30} /></div>
-                <h4 className="font-extrabold text-slate-900">Tu inventario está listo para cargar</h4>
-                <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">Selecciona el Excel institucional para ver los indicadores, gráficos y registros de las hojas disponibles.</p>
-                <label className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#ff3547] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#e72d3e]"><Upload size={17} /> Seleccionar Excel<input type="file" accept=".xlsx,.xls" className="sr-only" onChange={importarExcel} /></label>
+                <LoaderCircle size={34} className="animate-spin text-rose-600" />
+                <h4 className="mt-4 font-extrabold text-slate-900">Conectando con el inventario</h4>
+                <p className="mt-2 text-sm text-slate-500">Consultando los registros guardados en Supabase…</p>
+              </div>
+            ) : registros.length === 0 ? (
+              <div className="flex flex-col items-center px-5 py-14 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 text-rose-600"><Database size={30} /></div>
+                <h4 className="font-extrabold text-slate-900">Todavía no hay bienes guardados</h4>
+                <p className="mt-2 max-w-lg text-sm leading-6 text-slate-500">La pantalla ya consulta Supabase. Ejecuta una sola vez la migración SQL y el script de importación del Excel para llenar la base de datos. Después no tendrás que seleccionar el libro nuevamente.</p>
+                <button type="button" onClick={() => void cargarInventario()} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#ff3547] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#e72d3e]"><RefreshCw size={16} /> Volver a consultar</button>
               </div>
             ) : bienes.length === 0 ? (
-              <div className="flex flex-col items-center px-5 py-12 text-center"><CircleAlert size={32} className="text-amber-500" /><h4 className="mt-3 font-bold text-slate-800">No se detectaron registros en esta hoja</h4><p className="mt-1 text-sm text-slate-500">Comprueba que la hoja tenga encabezados de ITEM, CANT y DETALLE/DESCRIPCIÓN.</p></div>
+              <div className="flex flex-col items-center px-5 py-12 text-center"><CircleAlert size={32} className="text-amber-500" /><h4 className="mt-3 font-bold text-slate-800">No hay registros para esta facultad</h4><p className="mt-1 text-sm text-slate-500">Selecciona otra facultad o vuelve a consultar la base de datos.</p></div>
             ) : bienesFiltrados.length === 0 ? (
               <div className="flex flex-col items-center px-5 py-12 text-center"><Search size={30} className="text-slate-300" /><h4 className="mt-3 font-bold text-slate-800">No hay resultados</h4><p className="mt-1 text-sm text-slate-500">Prueba otra búsqueda o limpia los filtros seleccionados.</p><button type="button" onClick={limpiarFiltros} className="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Restablecer vista</button></div>
             ) : (
@@ -775,7 +709,7 @@ export default function Inventario() {
 
           <footer className="flex flex-col gap-1 border-t border-slate-200 px-1 pt-4 text-[11px] leading-5 text-slate-400 sm:flex-row sm:items-center sm:justify-between">
             <span>Inventario institucional · Facultad de Ciencias Informáticas</span>
-            <span>Los gráficos son cálculos a partir de la hoja seleccionada; el Excel original no se modifica.</span>
+            <span>Los datos se consultan desde Supabase; el Excel original solo se necesita para la importación inicial.</span>
           </footer>
         </div>
       </div>

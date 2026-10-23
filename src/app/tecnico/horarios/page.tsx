@@ -5,6 +5,7 @@ import { CalendarX } from "lucide-react";
 import ShellDocente, { MENU_TECNICO } from "@/components/docente/ShellDocente";
 import { LABS } from "@/lib/datos";
 import { DIAS, HORA_INICIO, cargarHorarios, type Bloque } from "@/lib/horarios";
+import { cargarReservasHoy, type OcupacionHoy } from "@/lib/reservas";
 
 const ALTO_FILA = 64;
 const RECESO = 12; // la fila 12:00-13:00 no tiene clases en los horarios impresos
@@ -29,6 +30,8 @@ export default function Horarios() {
   const [datos, setDatos] = useState<Record<string, Bloque[][]>>({});
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
+  const [ahora, setAhora] = useState<Date | null>(null);
+  const [reservasHoy, setReservasHoy] = useState<OcupacionHoy[]>([]);
 
   useEffect(() => {
     const d = new Date().getDay(); // 0 = domingo
@@ -45,11 +48,42 @@ export default function Horarios() {
       .finally(() => setCargando(false));
   }, []);
 
+  useEffect(() => {
+    setAhora(new Date());
+    const t = window.setInterval(() => setAhora(new Date()), 60_000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    cargarReservasHoy().then(setReservasHoy).catch(() => {});
+  }, []);
+
   const semana: Bloque[][] = datos[lab] ?? [[], [], [], [], []];
   const horaFin = Math.max(17, ...semana.flat().map((b) => b[1]));
   const horas = Array.from({ length: horaFin - HORA_INICIO }, (_, i) => HORA_INICIO + i);
   const clases = semana.reduce((n, d) => n + d.length, 0);
   const horasOcupadas = semana.flat().reduce((n, b) => n + (b[1] - b[0]), 0);
+
+  const diaHoy = ahora ? ahora.getDay() - 1 : -1; // 0 = lunes ... 4 = viernes
+  const horaDec = ahora ? ahora.getHours() + ahora.getMinutes() / 60 : -1;
+
+  const esActual = (d: number, ini: number, fin: number) =>
+    d === diaHoy && horaDec >= ini && horaDec < fin;
+
+  // Ocupación de un laboratorio ahora mismo (clase fija o reserva aprobada)
+  const ocupacionAhora = (l: string) => {
+    if (!ahora) return null;
+    const clase =
+      diaHoy >= 0 && diaHoy <= 4
+        ? (datos[l] ?? [[], [], [], [], []])[diaHoy].find(([i, f]) => horaDec >= i && horaDec < f)
+        : undefined;
+    if (clase) return `Clase de ${clase[2]} (${hh(clase[0])} - ${hh(clase[1])})`;
+    const r = reservasHoy.find((x) => x.lab === l && horaDec >= x.ini && horaDec < x.fin);
+    if (r) return `Reserva de ${r.docente}: ${r.asignatura}`;
+    return null;
+  };
+
+  const ocupadoLab = ocupacionAhora(lab);
 
   return (
     <ShellDocente menu={MENU_TECNICO}>
@@ -65,12 +99,37 @@ export default function Horarios() {
               onClick={() => setLab(l)}
             >
               Laboratorio {l}
+              {ocupacionAhora(l) && (
+                <span
+                  className="ml-1.5 inline-block h-2 w-2 rounded-full"
+                  style={{ background: "var(--dd-danger)" }}
+                  aria-label="Ocupado ahora"
+                />
+              )}
             </button>
           ))}
         </div>
         <p className="dd-section-sub" style={{ marginTop: 10 }}>
           {clases} clases por semana, {horasOcupadas} horas ocupadas.
         </p>
+
+        {ahora && (
+          <div
+            role="status"
+            className="mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold"
+            style={
+              ocupadoLab
+                ? { background: "var(--dd-danger-soft)", color: "var(--dd-danger)" }
+                : { background: "var(--dd-ok-bg)", color: "var(--dd-ok-fg)" }
+            }
+          >
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ background: ocupadoLab ? "var(--dd-danger)" : "var(--dd-ok)" }}
+            />
+            {ocupadoLab ? `Ocupado ahora: ${ocupadoLab}` : "Libre en este momento"}
+          </div>
+        )}
 
         {error && <p className="ss-error" role="alert">{error}</p>}
         {cargando && <p className="dd-section-sub" style={{ marginTop: 10 }}>Cargando horarios…</p>}
@@ -137,6 +196,7 @@ export default function Horarios() {
             {semana.flatMap((bloques, d) =>
               bloques.map(([ini, fin, materia, docente]) => {
                 const t = tono(materia);
+                const activo = esActual(d, ini, fin);
                 return (
                   <article
                     key={`${d}-${ini}`}
@@ -148,8 +208,14 @@ export default function Horarios() {
                       background: t.bg,
                       borderLeft: `4px solid ${t.bd}`,
                       color: "var(--dd-navy)",
+                      boxShadow: activo ? "0 0 0 2px var(--dd-danger)" : undefined,
                     }}
                   >
+                    {activo && (
+                      <span className="mb-1 inline-block rounded-full bg-[var(--dd-danger)] px-2 py-0.5 text-[9px] font-bold text-white">
+                        EN CURSO
+                      </span>
+                    )}
                     <h3 className="text-[13px] font-bold leading-tight">{materia}</h3>
                     <p className="mt-1 text-[11px] leading-snug" style={{ color: "var(--dd-text)" }}>{docente}</p>
                     <p className="mt-1 text-[10px] font-semibold" style={{ color: "var(--dd-mut)" }}>
@@ -186,12 +252,23 @@ export default function Horarios() {
             <ul className="dd-list">
               {semana[diaMovil].map(([ini, fin, materia, docente]) => {
                 const t = tono(materia);
+                const activo = esActual(diaMovil, ini, fin);
                 return (
                   <li
                     key={ini}
                     className="rounded-2xl px-4 py-3"
-                    style={{ background: t.bg, borderLeft: `5px solid ${t.bd}`, color: "var(--dd-navy)" }}
+                    style={{
+                      background: t.bg,
+                      borderLeft: `5px solid ${t.bd}`,
+                      color: "var(--dd-navy)",
+                      boxShadow: activo ? "0 0 0 2px var(--dd-danger)" : undefined,
+                    }}
                   >
+                    {activo && (
+                      <span className="mb-1 inline-block rounded-full bg-[var(--dd-danger)] px-2 py-0.5 text-[9px] font-bold text-white">
+                        EN CURSO
+                      </span>
+                    )}
                     <p className="text-[11px] font-bold" style={{ color: "var(--dd-mut)" }}>
                       {hh(ini)} - {hh(fin)}
                     </p>

@@ -1,17 +1,22 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Monitor, Check, ArrowLeft, ArrowRight, Send } from "lucide-react";
 import ShellDocente from "@/components/docente/ShellDocente";
 import { Firma } from "@/components/ui";
 import { LABS, CARRERAS, PERIODOS } from "@/lib/datos";
-import { crearReserva, choqueConClase, mensajeError } from "@/lib/reservas";
+import {
+  crearReserva, choqueConClase, mensajeError, cargarOcupacionFecha, type OcupacionDia,
+} from "@/lib/reservas";
+import { cargarHorarios, type Bloque } from "@/lib/horarios";
 import { usePerfil } from "@/lib/perfil";
 
 /* TODO: si tienes la capacidad real de cada laboratorio, ponla aquí. */
 const CAPACIDAD_DEFECTO = 40;
 
 const PASOS = ["Académico", "Horario", "Detalles", "Revisión"];
+
+const MSG_FINDE = "La ULEAM no atiende sábados ni domingos. Elige un día de lunes a viernes.";
 
 type Datos = {
   nombre: string; carrera: string; asignatura: string; periodo: string;
@@ -34,6 +39,18 @@ const hoy = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
+const aH = (t: string) => {
+  const [h, m] = t.split(":");
+  return Number(h) + Number(m) / 60;
+};
+
+/** true si la fecha ISO cae en sábado o domingo */
+const esFinDeSemana = (iso: string) => {
+  if (!iso) return false;
+  const d = new Date(`${iso}T00:00:00`).getDay(); // 0 = domingo, 6 = sábado
+  return d === 0 || d === 6;
+};
+
 function validar(paso: number, d: Datos): Errores {
   const e: Errores = {};
   if (paso === 0) {
@@ -42,6 +59,7 @@ function validar(paso: number, d: Datos): Errores {
   if (paso === 1) {
     if (!d.fecha) e.fecha = "Elige la fecha de la práctica.";
     else if (d.fecha < hoy()) e.fecha = "La fecha no puede ser anterior a hoy.";
+    else if (esFinDeSemana(d.fecha)) e.fecha = MSG_FINDE;
     if (!d.lab) e.lab = "Elige un laboratorio.";
     if (!d.inicio) e.inicio = "Indica la hora de inicio.";
     if (!d.fin) e.fin = "Indica la hora de fin.";
@@ -84,11 +102,62 @@ export default function Solicitar() {
   const [enviado, setEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState("");
+  const [horarios, setHorarios] = useState<Record<string, Bloque[][]>>({});
+  const [reservasDia, setReservasDia] = useState<OcupacionDia[]>([]);
+
+  useEffect(() => {
+    cargarHorarios().then(setHorarios).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!datos.fecha || esFinDeSemana(datos.fecha)) {
+      setReservasDia([]);
+      return;
+    }
+    cargarOcupacionFecha(datos.fecha).then(setReservasDia).catch(() => setReservasDia([]));
+  }, [datos.fecha]);
+
+  const finde = esFinDeSemana(datos.fecha);
+  const hayRango = !!(datos.inicio && datos.fin && datos.fin > datos.inicio);
+  const textoOcupado = hayRango ? "Ocupado" : "Ocupado ahora";
+  const textoLibre = hayRango ? "Libre" : "Libre ahora";
+
+  /** "ocupado" | "libre" | null (si aún no hay datos suficientes para saberlo) */
+  const estadoLab = (l: string): "ocupado" | "libre" | null => {
+    if (!datos.fecha || esFinDeSemana(datos.fecha)) return null;
+    let a: number, b: number;
+    if (hayRango) {
+      a = aH(datos.inicio);
+      b = aH(datos.fin);
+    } else if (datos.fecha === hoy()) {
+      const n = new Date();
+      a = n.getHours() + n.getMinutes() / 60;
+      b = a + 0.01; // "ahora"
+    } else {
+      return null;
+    }
+    const dia = (new Date(`${datos.fecha}T00:00:00`).getDay() + 6) % 7; // 0 = lunes
+    const clase = dia <= 4 && (horarios[l]?.[dia] ?? []).some(([i, f]) => a < f && i < b);
+    const reserva = reservasDia.some((r) => r.lab === l && a < r.fin && r.ini < b);
+    return clase || reserva ? "ocupado" : "libre";
+  };
+
+  // Si el laboratorio elegido pasa a ocupado (o la fecha cae en fin de semana), se deselecciona
+  useEffect(() => {
+    if (datos.lab && (esFinDeSemana(datos.fecha) || estadoLab(datos.lab) === "ocupado")) {
+      setDatos((d) => ({ ...d, lab: "" }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datos.fecha, datos.inicio, datos.fin, horarios, reservasDia]);
 
   const set = (k: keyof Datos) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-      setDatos((d) => ({ ...d, [k]: e.target.value }));
-      setErrores((er) => ({ ...er, [k]: undefined }));
+      const valor = e.target.value;
+      setDatos((d) => ({ ...d, [k]: valor }));
+      setErrores((er) => ({
+        ...er,
+        [k]: k === "fecha" && esFinDeSemana(valor) ? MSG_FINDE : undefined,
+      }));
     };
 
   const ir = (n: number) => {
@@ -98,6 +167,9 @@ export default function Solicitar() {
 
   const siguiente = async () => {
     const er = validar(paso, datos);
+    if (paso === 1 && datos.lab && estadoLab(datos.lab) === "ocupado") {
+      er.lab = `El Laboratorio ${datos.lab} está ocupado en ese horario. Elige otro.`;
+    }
     if (Object.keys(er).length === 0 && paso === 1) {
       try {
         const choque = await choqueConClase(datos.lab, datos.fecha, datos.inicio, datos.fin);
@@ -212,37 +284,9 @@ export default function Solicitar() {
           {/* Paso 2 */}
           <fieldset className="ss-fieldset" hidden={paso !== 1}>
             <legend className="ss-legend">Laboratorio y horario</legend>
-            <Grupo id="fecha" label="Fecha de la práctica" error={errores.fecha}>
+            <Grupo id="fecha" label="Fecha de la práctica (lunes a viernes)" error={errores.fecha}>
               <input className="input" type="date" min={hoy()} {...attrs("fecha")} value={datos.fecha} onChange={set("fecha")} />
             </Grupo>
-
-            <div className="ss-group" role="radiogroup" aria-labelledby="lab-label">
-              <span id="lab-label" className="ss-label">Laboratorio solicitado</span>
-              <div className="ss-labs">
-                {LABS.map((l: string | number) => {
-                  const id = String(l);
-                  const activo = datos.lab === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      role="radio"
-                      aria-checked={activo}
-                      className={`ss-lab ${activo ? "is-selected" : ""}`}
-                      onClick={() => {
-                        setDatos((d) => ({ ...d, lab: id }));
-                        setErrores((er) => ({ ...er, lab: undefined }));
-                      }}
-                    >
-                      <span className="ss-lab__icon"><Monitor size={18} /></span>
-                      <span className="ss-lab__name">Laboratorio {id}</span>
-                      <span className="ss-lab__meta">Hasta {CAPACIDAD_DEFECTO} estudiantes</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {errores.lab && <p className="ss-error" role="alert">{errores.lab}</p>}
-            </div>
 
             <div className="ss-row">
               <Grupo id="inicio" label="Hora de inicio" error={errores.inicio}>
@@ -251,6 +295,63 @@ export default function Solicitar() {
               <Grupo id="fin" label="Hora de fin" error={errores.fin}>
                 <input className="input" type="time" {...attrs("fin")} value={datos.fin} onChange={set("fin")} />
               </Grupo>
+            </div>
+
+            <div className="ss-group" role="radiogroup" aria-labelledby="lab-label">
+              <span id="lab-label" className="ss-label">Laboratorio solicitado</span>
+              {finde ? (
+                <p className="dd-section-sub" style={{ marginBottom: 8 }}>
+                  Elige una fecha de lunes a viernes para poder seleccionar un laboratorio.
+                </p>
+              ) : hayRango ? (
+                <p className="dd-section-sub" style={{ marginBottom: 8 }}>
+                  Los laboratorios ocupados en ese horario no se pueden seleccionar.
+                </p>
+              ) : null}
+              <div className="ss-labs">
+                {LABS.map((l: string | number) => {
+                  const id = String(l);
+                  const activo = datos.lab === id;
+                  const estado = estadoLab(id);
+                  const bloqueado = estado === "ocupado" || finde;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      role="radio"
+                      aria-checked={activo}
+                      disabled={bloqueado}
+                      className={`ss-lab ${activo ? "is-selected" : ""} ${bloqueado ? "is-ocupado" : ""}`}
+                      onClick={() => {
+                        if (bloqueado) return;
+                        setDatos((d) => ({ ...d, lab: id }));
+                        setErrores((er) => ({ ...er, lab: undefined }));
+                      }}
+                    >
+                      <span className="ss-lab__icon"><Monitor size={18} /></span>
+                      <span className="ss-lab__name">Laboratorio {id}</span>
+                      <span className="ss-lab__meta">Hasta {CAPACIDAD_DEFECTO} estudiantes</span>
+                      {estado && (
+                        <span
+                          className="mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                          style={
+                            estado === "ocupado"
+                              ? { background: "var(--dd-danger-soft)", color: "var(--dd-danger)" }
+                              : { background: "var(--dd-ok-bg)", color: "var(--dd-ok-fg)" }
+                          }
+                        >
+                          <span
+                            className="h-1.5 w-1.5 rounded-full"
+                            style={{ background: estado === "ocupado" ? "var(--dd-danger)" : "var(--dd-ok)" }}
+                          />
+                          {estado === "ocupado" ? textoOcupado : textoLibre}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {errores.lab && <p className="ss-error" role="alert">{errores.lab}</p>}
             </div>
           </fieldset>
 

@@ -1118,26 +1118,9 @@ body {
 
 /* Paso rechazado: el punto actual va en rojo */
 [data-estado="rechazado"] .dd-step.is-current .dd-step__dot { background: var(--dd-danger); }
-
-/* ---------- Modal de detalles ---------- */
-.dm-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: rgba(27, 31, 94, 0.45);
+.ss-lab.is-ocupado {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--dd-bg);
 }
-.dm-box {
-  width: 100%;
-  max-width: 460px;
-  max-height: 85dvh;
-  overflow-y: auto;
-  padding: 18px;
-  background: var(--dd-surface);
-  border-radius: var(--dd-radius-card);
-  box-shadow: var(--dd-shadow);
-}
-.dm-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-.dm-title { font-size: 17px; font-weight: 800; color: var(--dd-navy); }
+.ss-lab.is-ocupado:hover { border-color: var(--dd-neutral); }
