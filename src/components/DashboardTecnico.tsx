@@ -8,6 +8,7 @@ import {
   cargarSolicitudes, responderReserva, mensajeError, fechaLarga,
   type SolicitudTec,
 } from "@/lib/reservas";
+import DetalleModal from "@/components/DetalleModal";
 import { contarPendientes } from "@/lib/pendientes";
 
 type Estado = SolicitudTec["estado"];
@@ -30,6 +31,7 @@ const FILTROS: { id: Filtro; t: string }[] = [
 function Tarjeta({
   s, ocupado, onCambiar,
 }: { s: SolicitudTec; ocupado: boolean; onCambiar: (id: string, e: "aprobada" | "rechazada") => void }) {
+  const [abierto, setAbierto] = useState(false);
   const e = etiqueta(s.estado);
   return (
     <article className="dd-card" data-estado={s.estado}>
@@ -44,7 +46,9 @@ function Tarjeta({
       <p className="tt-meta">Solicitado por {s.docente} (Docente)</p>
       {s.estado === "rechazado" && s.motivo && <p className="tt-meta">Motivo del rechazo: {s.motivo}</p>}
       <div className="dd-card__actions">
-        <Link href="/tecnico/solicitudes" className="dd-btn dd-btn--ghost"><Eye /> Ver detalles</Link>
+        <button type="button" className="dd-btn dd-btn--ghost" onClick={() => setAbierto(true)}>
+          <Eye /> Ver detalles
+        </button>
         {s.estado === "pendiente" && (
           <div className="tt-btns">
             <button className="dd-btn dd-btn--danger" disabled={ocupado} onClick={() => onCambiar(s.id, "rechazada")}>
@@ -56,6 +60,22 @@ function Tarjeta({
           </div>
         )}
       </div>
+
+      {abierto && (
+        <DetalleModal
+          titulo={`Laboratorio ${s.lab}`}
+          onClose={() => setAbierto(false)}
+          filas={[
+            ["Solicitante", `${s.docente} (Docente)`],
+            ["Laboratorio", `Laboratorio ${s.lab}`],
+            ["Fecha", fechaLarga(s.fecha)],
+            ["Horario", `${s.inicio} - ${s.fin}`],
+            ["Estudiantes", String(s.est)],
+            ["Estado", e.t],
+            ...(s.motivo ? [["Motivo del rechazo", s.motivo] as [string, string]] : []),
+          ]}
+        />
+      )}
     </article>
   );
 }
