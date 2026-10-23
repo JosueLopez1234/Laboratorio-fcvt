@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Monitor, Check, X, Clock, ClipboardCheck, TriangleAlert } from "lucide-react";
+import { Monitor, Check, X, Clock, ClipboardCheck, TriangleAlert, Eye } from "lucide-react";
 import ShellDocente, { MENU_TECNICO } from "@/components/docente/ShellDocente";
 import SolicitudesMaterial from "@/components/Solicitudesmateriales";
+import DetalleModal from "@/components/DetalleModal";
 import {
   cargarSolicitudes, responderReserva, mensajeError, fechaLarga,
   type SolicitudTec,
@@ -48,6 +49,7 @@ export default function Solicitudes() {
   const [rechazando, setRechazando] = useState<string | null>(null);
   const [motivo, setMotivo] = useState("");
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [detalle, setDetalle] = useState<SolicitudTec | null>(null); // <- ahora DENTRO del componente
 
   useEffect(() => {
     cargarSolicitudes()
@@ -189,8 +191,13 @@ export default function Solicitudes() {
                     </p>
                   )}
 
-                  {s.estado === "pendiente" && !abierto && (
-                    <div className="dd-card__actions" style={{ justifyContent: "flex-end" }}>
+                  {/* Esta fila ahora aparece SIEMPRE: "Ver detalles" en cualquier estado */}
+                  <div className="dd-card__actions">
+                    <button type="button" className="dd-btn dd-btn--ghost" onClick={() => setDetalle(s)}>
+                      <Eye /> Ver detalles
+                    </button>
+
+                    {s.estado === "pendiente" && !abierto && (
                       <div className="tt-btns">
                         <button
                           className="dd-btn dd-btn--danger"
@@ -208,8 +215,8 @@ export default function Solicitudes() {
                           <Check /> {ocupado === s.id ? "Guardando…" : "Aprobar"}
                         </button>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {abierto && (
                     <div className="tt-reject">
@@ -237,6 +244,22 @@ export default function Solicitudes() {
           </div>
         )}
       </section>
+      )}
+
+      {/* Modal de detalles (faltaba) */}
+      {detalle && (
+        <DetalleModal
+          titulo={`Laboratorio ${detalle.lab}`}
+          onClose={() => setDetalle(null)}
+          filas={[
+            ["Solicitante", detalle.docente],
+            ["Fecha", fechaLarga(detalle.fecha)],
+            ["Horario", `${detalle.inicio} - ${detalle.fin}`],
+            ["Estudiantes", String(detalle.est)],
+            ["Estado", BADGE[detalle.estado].t],
+            ...(detalle.motivo ? [["Motivo del rechazo", detalle.motivo] as [string, string]] : []),
+          ]}
+        />
       )}
     </ShellDocente>
   );
