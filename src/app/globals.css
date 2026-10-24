@@ -1141,3 +1141,10 @@ body {
 }
 .dm-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .dm-title { font-size: 17px; font-weight: 800; color: var(--dd-navy); }
+
+.ss-lab.is-ocupado {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--dd-bg);
+}
+.ss-lab.is-ocupado:hover { border-color: var(--dd-neutral); }
