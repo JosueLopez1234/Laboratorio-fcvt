@@ -1148,3 +1148,41 @@ body {
   background: var(--dd-bg);
 }
 .ss-lab.is-ocupado:hover { border-color: var(--dd-neutral); }
+
+/* ---------- Modal de detalles ---------- */
+.dm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000; /* por encima del bottom nav (40) y el header (30) */
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(27, 31, 94, 0.5);
+}
+.dm-box {
+  width: 100%;
+  max-width: 520px;
+  max-height: 85dvh;
+  overflow-y: auto;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: var(--dd-surface);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -4px 20px rgba(27, 31, 94, 0.25);
+}
+.dm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.dm-title { font-size: 17px; font-weight: 800; color: var(--dd-navy); }
+
+@media (min-width: 640px) {
+  .dm-overlay { align-items: center; }
+  .dm-box { border-radius: 18px; padding-bottom: 16px; }
+}
+
+/* Botones más cómodos de tocar en móvil */
+@media (max-width: 1023px) {
+  .dd-btn { padding: 9px 12px; font-size: 12px; min-height: 38px; }
+}

@@ -1,5 +1,6 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export default function DetalleModal({
@@ -10,13 +11,24 @@ export default function DetalleModal({
   onClose: () => void;
   children?: React.ReactNode;
 }) {
+  const [montado, setMontado] = useState(false);
+  useEffect(() => setMontado(true), []);
+
   useEffect(() => {
     const alTeclear = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", alTeclear);
-    return () => document.removeEventListener("keydown", alTeclear);
+    const previo = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", alTeclear);
+      document.body.style.overflow = previo;
+    };
   }, [onClose]);
 
-  return (
+  if (!montado) return null;
+
+  // Portal: el modal se pinta directo en <body>, fuera de cualquier contenedor
+  return createPortal(
     <div className="dm-overlay" onClick={onClose}>
       <div
         className="dm-box" role="dialog" aria-modal="true" aria-label={titulo}
@@ -38,6 +50,7 @@ export default function DetalleModal({
         </dl>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

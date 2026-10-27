@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Monitor, Eye, TriangleAlert, Clock, Check, Play, X, CalendarX } from "lucide-react";
 import {
   cargarMisReservas, cancelarReserva, mensajeError,
   type ReservaUI, type EstadoUI,
 } from "@/lib/reservas";
+import DetalleModal from "@/components/DetalleModal";
 
 type Paso = "done" | "current" | "todo";
 
@@ -39,7 +40,9 @@ const FILTROS: { id: Filtro; t: string }[] = [
   { id: "cancelado", t: "Canceladas" },
 ];
 
-function Tarjeta({ r, onCancelar }: { r: ReservaUI; onCancelar: (id: string) => void }) {
+function Tarjeta({
+  r, onCancelar, onDetalle,
+}: { r: ReservaUI; onCancelar: (id: string) => void; onDetalle: (r: ReservaUI) => void }) {
   const pasos = PASOS[r.estado];
   const etiquetas = ["Solicitud", "Revisión", "Aprobación", "Uso"];
   const meta = [r.fecha, r.hora, `${r.estudiantes} estudiantes`, `Solicitante\n${r.solicitante}`];
@@ -64,9 +67,11 @@ function Tarjeta({ r, onCancelar }: { r: ReservaUI; onCancelar: (id: string) => 
       </div>
       {r.estado === "rechazado" && r.motivo && <p className="tt-meta">Motivo del rechazo: {r.motivo}</p>}
       <div className="dd-card__actions">
-        <button className="dd-btn dd-btn--ghost"><Eye /> Ver detalles</button>
+        <button type="button" className="dd-btn dd-btn--ghost" onClick={() => onDetalle(r)}>
+          <Eye /> Ver detalles
+        </button>
         {r.estado === "pendiente" && (
-          <button className="dd-btn dd-btn--danger" onClick={() => onCancelar(r.id)}>
+          <button type="button" className="dd-btn dd-btn--danger" onClick={() => onCancelar(r.id)}>
             <X /> Cancelar reserva
           </button>
         )}
@@ -86,6 +91,7 @@ export default function MisReservas() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todas");
+  const [detalle, setDetalle] = useState<ReservaUI | null>(null);
 
   useEffect(() => {
     cargarMisReservas()
@@ -93,6 +99,8 @@ export default function MisReservas() {
       .catch((e) => setError(mensajeError(e)))
       .finally(() => setCargando(false));
   }, []);
+
+  const cerrarDetalle = useCallback(() => setDetalle(null), []);
 
   const cancelar = async (id: string) => {
     if (!window.confirm("¿Cancelar esta reserva?")) return;
@@ -107,12 +115,25 @@ export default function MisReservas() {
   const contar = (f: Filtro) => (f === "todas" ? items.length : items.filter((i) => i.estado === f).length);
   const visibles = filtro === "todas" ? items : items.filter((i) => i.estado === filtro);
 
+  const filasDetalle = (r: ReservaUI): [string, string][] => {
+    const filas: [string, string][] = [
+      ["Laboratorio", r.lab],
+      ["Fecha", r.fecha],
+      ["Horario", r.hora],
+      ["Estudiantes", String(r.estudiantes)],
+      ["Solicitante", r.solicitante],
+      ["Estado", BADGE[r.estado].t],
+    ];
+    if (r.estado === "rechazado" && r.motivo) filas.push(["Motivo", r.motivo]);
+    return filas;
+  };
+
   return (
     <>
       <div className="dd-chips" role="tablist" aria-label="Filtrar reservas">
         {FILTROS.map((f) => (
           <button
-            key={f.id} role="tab" aria-selected={filtro === f.id}
+            key={f.id} type="button" role="tab" aria-selected={filtro === f.id}
             className={`dd-chip ${filtro === f.id ? "is-active" : ""}`}
             onClick={() => setFiltro(f.id)}
           >
@@ -137,8 +158,14 @@ export default function MisReservas() {
         </div>
       ) : (
         <div className="dd-list">
-          {visibles.map((r) => <Tarjeta key={r.id} r={r} onCancelar={cancelar} />)}
+          {visibles.map((r) => (
+            <Tarjeta key={r.id} r={r} onCancelar={cancelar} onDetalle={setDetalle} />
+          ))}
         </div>
+      )}
+
+      {detalle && (
+        <DetalleModal titulo={detalle.lab} filas={filasDetalle(detalle)} onClose={cerrarDetalle} />
       )}
     </>
   );
