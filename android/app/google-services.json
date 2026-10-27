@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1039395986836",
+    "project_id": "laboratorio-fcvt",
+    "storage_bucket": "laboratorio-fcvt.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1039395986836:android:0380e0a2a1f9d149fe0381",
+        "android_client_info": {
+          "package_name": "ec.edu.uleam.laboratorios"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDR9eiro6ZyiSw6bWrIvJ0X7ojRBkA9p6o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

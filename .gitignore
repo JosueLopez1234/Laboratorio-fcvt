@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 *.apk
 src/app/page.backup.tsx
+.agents/
+skills-lock.json
+exportar.ps1
+proyecto_contexto.txt

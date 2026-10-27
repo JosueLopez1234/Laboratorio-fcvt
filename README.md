@@ -2,6 +2,17 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Configura `.env.local` en la raíz del proyecto con la URL de Supabase y su clave
+pública:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=tu_clave_publishable
+```
+
+También se admite `NEXT_PUBLIC_SUPABASE_ANON_KEY` para proyectos que aún usan
+la clave anon antigua. No uses una clave `secret` o `service_role` en el cliente.
+
 First, run the development server:
 
 ```bash
