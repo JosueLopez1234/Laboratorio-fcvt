@@ -71,6 +71,7 @@ async function uid() {
 export async function crearReserva(d: {
   lab: string; fecha: string; inicio: string; fin: string;
   carrera: string; periodo: string; asignatura: string; estudiantes: number; actividad: string;
+  firmaUrl?: string;
 }) {
   const { error } = await supabase.from("reservas").insert({
     docente_id: await uid(),
@@ -83,6 +84,7 @@ export async function crearReserva(d: {
     asignatura: d.asignatura.trim(),
     estudiantes: d.estudiantes,
     actividad: d.actividad.trim() || null,
+    firma_url: d.firmaUrl ?? null, 
   });
   if (error) throw error;
 }

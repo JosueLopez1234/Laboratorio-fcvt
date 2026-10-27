@@ -62,24 +62,51 @@ export function Chips({ leyenda, opciones }: { leyenda: string; opciones: string
   );
 }
 
-export function Firma({ label }: { label: string }) {
+export function Firma({
+  label, onChange,
+}: { label: string; onChange?: (dataUrl: string | null) => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const dibujando = useRef(false);
+  const hayTrazo = useRef(false);
 
   useEffect(() => {
     const c = ref.current!;
-    const r = c.getBoundingClientRect();
-    c.width = r.width;
-    c.height = r.height;
-    const x = c.getContext("2d")!;
-    x.lineWidth = 2;
-    x.lineCap = "round";
-    x.strokeStyle = "#333";
+    const ajustar = () => {
+      const r = c.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return; // sigue oculto
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+      if (c.width === w && c.height === h) return;
+      const previo = hayTrazo.current ? c.toDataURL() : null;
+      c.width = w;
+      c.height = h;
+      const x = c.getContext("2d")!;
+      x.scale(dpr, dpr);
+      x.lineWidth = 2;
+      x.lineCap = "round";
+      x.lineJoin = "round";
+      x.strokeStyle = "#333";
+      if (previo) {
+        const img = new Image();
+        img.onload = () => x.drawImage(img, 0, 0, r.width, r.height);
+        img.src = previo;
+      }
+    };
+    ajustar();
+    const ro = new ResizeObserver(ajustar); // se dispara al pasar de oculto a visible
+    ro.observe(c);
+    return () => ro.disconnect();
   }, []);
 
   const pos = (e: React.PointerEvent) => {
     const r = ref.current!.getBoundingClientRect();
     return [e.clientX - r.left, e.clientY - r.top] as const;
+  };
+
+  const terminar = () => {
+    if (!dibujando.current) return;
+    dibujando.current = false;
+    if (hayTrazo.current) onChange?.(ref.current!.toDataURL("image/png"));
   };
 
   return (
@@ -90,11 +117,15 @@ export function Firma({ label }: { label: string }) {
         className="h-28 w-full rounded bg-white"
         style={{ touchAction: "none" }}
         onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
           dibujando.current = true;
           const x = ref.current!.getContext("2d")!;
           const [a, b] = pos(e);
           x.beginPath();
           x.moveTo(a, b);
+          x.lineTo(a + 0.1, b + 0.1); // permite puntos
+          x.stroke();
+          hayTrazo.current = true;
         }}
         onPointerMove={(e) => {
           if (!dibujando.current) return;
@@ -103,15 +134,21 @@ export function Firma({ label }: { label: string }) {
           x.lineTo(a, b);
           x.stroke();
         }}
-        onPointerUp={() => (dibujando.current = false)}
-        onPointerLeave={() => (dibujando.current = false)}
+        onPointerUp={terminar}
+        onPointerCancel={terminar}
       />
       <button
         type="button"
         className="self-start rounded-full border border-gray-300 px-3 py-1 text-xs"
         onClick={() => {
           const c = ref.current!;
-          c.getContext("2d")!.clearRect(0, 0, c.width, c.height);
+          const x = c.getContext("2d")!;
+          x.save();
+          x.setTransform(1, 0, 0, 1, 0, 0);
+          x.clearRect(0, 0, c.width, c.height);
+          x.restore();
+          hayTrazo.current = false;
+          onChange?.(null);
         }}
       >
         Borrar firma

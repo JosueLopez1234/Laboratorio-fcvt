@@ -10,6 +10,7 @@ import {
 } from "@/lib/reservas";
 import { cargarHorarios, type Bloque } from "@/lib/horarios";
 import { usePerfil } from "@/lib/perfil";
+import { subirFirma } from "@/lib/firmas"; // NUEVO
 
 /* TODO: si tienes la capacidad real de cada laboratorio, ponla aquí. */
 const CAPACIDAD_DEFECTO = 40;
@@ -104,6 +105,8 @@ export default function Solicitar() {
   const [errorEnvio, setErrorEnvio] = useState("");
   const [horarios, setHorarios] = useState<Record<string, Bloque[][]>>({});
   const [reservasDia, setReservasDia] = useState<OcupacionDia[]>([]);
+  const [firma, setFirma] = useState<string | null>(null); // NUEVO
+  const [errFirma, setErrFirma] = useState("");            // NUEVO
 
   useEffect(() => {
     cargarHorarios().then(setHorarios).catch(() => {});
@@ -160,6 +163,12 @@ export default function Solicitar() {
       }));
     };
 
+  // NUEVO: al dibujar o borrar la firma se limpia el error
+  const alCambiarFirma = (f: string | null) => {
+    setFirma(f);
+    if (f) setErrFirma("");
+  };
+
   const ir = (n: number) => {
     setPaso(n);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -176,8 +185,14 @@ export default function Solicitar() {
         if (choque) er.lab = choque;
       } catch { /* si falla la consulta, el técnico lo verá al aprobar */ }
     }
+    // NUEVO: la firma es obligatoria para salir del paso 3
+    let sinFirma = false;
+    if (paso === 2 && !firma) {
+      setErrFirma("Firma en el recuadro antes de continuar.");
+      sinFirma = true;
+    }
     setErrores(er);
-    if (Object.keys(er).length === 0) ir(paso + 1);
+    if (Object.keys(er).length === 0 && !sinFirma) ir(paso + 1);
   };
 
   const enviar = async (e: React.FormEvent) => {
@@ -186,10 +201,13 @@ export default function Solicitar() {
     setEnviando(true);
     setErrorEnvio("");
     try {
+      // NUEVO: se sube la firma y se guarda su ruta junto con la reserva
+      const firmaUrl = firma ? await subirFirma(firma) : undefined;
       await crearReserva({
         lab: datos.lab, fecha: datos.fecha, inicio: datos.inicio, fin: datos.fin,
         carrera: datos.carrera, periodo: datos.periodo, asignatura: datos.asignatura,
         estudiantes: Number(datos.estudiantes), actividad: datos.actividad,
+        firmaUrl, // NUEVO (ver cambio en lib/reservas.ts abajo)
       });
       setEnviado(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -204,6 +222,8 @@ export default function Solicitar() {
     setDatos(INICIAL);
     setErrores({});
     setErrorEnvio("");
+    setFirma(null);   // NUEVO
+    setErrFirma("");  // NUEVO
     setPaso(0);
     setEnviado(false);
   };
@@ -383,7 +403,9 @@ export default function Solicitar() {
                 onChange={set("actividad")} placeholder="Ej: Práctica de consultas SQL con el grupo A"
               />
             </Grupo>
-            <Firma label="Firma del solicitante" />
+            {/* NUEVO: onChange entrega la imagen de la firma */}
+            <Firma label="Firma del solicitante" onChange={alCambiarFirma} />
+            {errFirma && <p className="ss-error" role="alert">{errFirma}</p>}
           </fieldset>
 
           {/* Paso 4 */}
@@ -412,6 +434,7 @@ export default function Solicitar() {
                 ["Estudiantes", datos.estudiantes || "—"],
                 ["Cédula", datos.cedula || "—"],
                 ["Actividad", datos.actividad.trim() || "Sin especificar"],
+                ["Firma", firma ? "Registrada" : "Falta firmar"], // NUEVO
               ]}
             />
           </fieldset>
