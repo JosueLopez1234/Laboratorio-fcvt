@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { AuthError, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { registrarPush, quitarPush } from "@/lib/push";
 
 export type RolApp = "estudiante" | "docente" | "tecnico" | "admin";
 export type Perfil = { id: string; nombre: string; rol: RolApp };
@@ -83,6 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       perfilRef.current = p;
       setPerfil(p);
       sincronizarRolTemporal(p);
+      if (p) void registrarPush();
     };
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evento, s) => {
@@ -121,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 const salir = useCallback(async () => {
   try {
+    await quitarPush();
     // "local" borra la sesión de este dispositivo sin depender de la red
     await supabase.auth.signOut({ scope: "local" });
   } finally {

@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 *.apk
 src/app/page.backup.tsx
+
+*firebase-adminsdk*.json
+.env*
+supabase/.temp/
