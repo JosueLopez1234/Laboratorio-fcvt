@@ -8,6 +8,8 @@
   --mut: #6b7280;
 }
 
+html, body { max-width: 100%; overflow-x: hidden; }
+
 body {
   font-family: var(--font-montserrat), system-ui, sans-serif;
   color: var(--ink);
@@ -20,9 +22,7 @@ body {
   padding: 14px 16px;
 }
 
-.home-role-switch {
-  padding: 8px 16px;
-}
+.home-role-switch { padding: 8px 16px; }
 
 .tarjeta {
   background: var(--card);
@@ -37,9 +37,7 @@ body {
   padding: 10px 12px;
   background: #fff;
 }
-.input:focus {
-  outline: 2px solid var(--uleam);
-}
+.input:focus { outline: 2px solid var(--uleam); }
 
 .btn {
   background: var(--uleam);
@@ -50,21 +48,14 @@ body {
   width: 100%;
 }
 
-.encabezado-inst {
-  border: 1px solid #000;
-  background: #fff;
-}
+.encabezado-inst { border: 1px solid #000; background: #fff; }
 .encabezado-inst__fila {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
 }
-.encabezado-inst__logo {
-  height: 56px;
-  width: auto;
-  flex-shrink: 0;
-}
+.encabezado-inst__logo { height: 56px; width: auto; flex-shrink: 0; }
 .encabezado-inst__facultad {
   flex: 1;
   text-align: center;
@@ -89,15 +80,10 @@ body {
   padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
   border-bottom: 1px solid #e5e7eb;
 }
-.franja-logo .logo {
-  height: 64px;
-  width: auto;
-  max-width: none;
-  flex-shrink: 0;   /* evita que el texto lo aplaste */
-}
+.franja-logo .logo { height: 64px; width: auto; max-width: none; flex-shrink: 0; }
 .franja-logo .facultad {
-  flex: 0 1 220px;     /* ancho fijo de 220px, pegado a la derecha por space-between */
-  text-align: right;   /* texto alineado a la derecha */
+  flex: 0 1 220px;
+  text-align: right;
   font-size: 16px;
   font-weight: 600;
   line-height: 1.25;
@@ -110,21 +96,15 @@ body {
       8px
       max(20px, env(safe-area-inset-right, 0px));
   }
-
-  main.min-h-screen {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
+  main.min-h-screen { padding-bottom: env(safe-area-inset-bottom, 0px); }
   main.min-h-screen > .header-app {
     padding-top: calc(14px + env(safe-area-inset-top, 0px));
   }
-
   .header-app,
   .franja-logo {
     padding-inline: max(20px, env(safe-area-inset-left, 0px))
       max(20px, env(safe-area-inset-right, 0px));
   }
-
   main.min-h-screen > :not(header) {
     margin-inline: max(4px, env(safe-area-inset-left, 0px))
       max(4px, env(safe-area-inset-right, 0px));
@@ -132,27 +112,22 @@ body {
 }
 
 /* =========================================================
-   DASHBOARD DOCENTE – FCVT / ULEAM
-   Mobile first (Android) + escritorio (≥1024px)
-   Pégalo debajo de tus estilos actuales en globals.css
-   Todas las clases usan el prefijo .dd- para no chocar con
-   .tarjeta, .btn, .input, etc.
+   DASHBOARD – FCVT / ULEAM  (móvil primero + escritorio ≥1024px)
+   Prefijo .dd-
    ========================================================= */
 
 :root {
-  /* marca (nuevos tokens; --uleam y --ink se mantienen) */
-  --dd-red: #a51c1f;          /* header móvil + sidebar */
-  --dd-red-active: #f4605a;   /* ítem activo del sidebar */
-  --dd-navy: #1b1f5e;         /* títulos */
+  --dd-red: #a51c1f;
+  --dd-red-active: #f4605a;
+  --dd-navy: #1b1f5e;
   --dd-text: #2b2f4a;
   --dd-mut: #5b6075;
-  --dd-bg: #f0f1f5;           /* fondo de página */
-  --dd-surface: #fafafa;      /* tarjetas */
-  --dd-neutral: #d9dce3;      /* chips, botones, líneas */
-  --dd-blue: #2d3ae0;         /* acento primario */
+  --dd-bg: #f0f1f5;
+  --dd-surface: #fafafa;
+  --dd-neutral: #d9dce3;
+  --dd-blue: #2d3ae0;
   --dd-blue-soft: #e3e7ff;
 
-  /* estados */
   --dd-pend-bg: #ffd66b;  --dd-pend-fg: #8a5a00;  --dd-pend: #f5b82e;
   --dd-ok-bg:   #bfebcb;  --dd-ok-fg:   #1f7a3e;  --dd-ok:   #2fb15d;
   --dd-run-bg:  #d9d6f5;  --dd-run-fg:  #3b2fb5;
@@ -174,14 +149,15 @@ body {
 /* ---------- Header (móvil) ---------- */
 .dd-header {
   position: sticky;
-  top: env(safe-area-inset-top, 0px);
+  top: 0;
   z-index: 30;
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: var(--dd-red);
   color: #fff;
-  padding: 10px 16px;
+  /* mínimo 34px por si el WebView no reporta el safe area */
+  padding: max(calc(10px + env(safe-area-inset-top, 0px)), 34px) 16px 10px;
 }
 .dd-header__logo { height: 40px; width: auto; }
 .dd-header__actions { display: flex; align-items: center; gap: 22px; }
@@ -197,38 +173,30 @@ body {
 
 /* ---------- Contenido ---------- */
 .dd-main {
-  padding: 16px 16px calc(104px + env(safe-area-inset-bottom, 0px)); /* espacio para bottom nav */
+  padding: 16px 16px calc(110px + env(safe-area-inset-bottom, 0px));
   max-width: 1100px;
   margin-inline: auto;
+  min-width: 0;
 }
-
 @media (max-width: 640px) {
   .dd-header {
     padding-inline: max(20px, env(safe-area-inset-left, 0px))
       max(20px, env(safe-area-inset-right, 0px));
   }
-
   .dd-main {
     padding-inline: max(20px, env(safe-area-inset-left, 0px))
       max(20px, env(safe-area-inset-right, 0px));
   }
 }
 .dd-title {
+  margin-top: 4px;
   font-size: 22px;
   font-weight: 800;
   color: var(--dd-navy);
   line-height: 1.2;
 }
-.dd-subtitle {
-  margin-top: 2px;
-  font-size: 13px;
-  color: var(--dd-mut);
-}
-.dd-section-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--dd-navy);
-}
+.dd-subtitle { margin-top: 2px; font-size: 13px; color: var(--dd-mut); }
+.dd-section-title { font-size: 15px; font-weight: 700; color: var(--dd-navy); }
 .dd-section-sub { font-size: 12px; color: var(--dd-mut); }
 
 /* ---------- Banner / carrusel ---------- */
@@ -240,8 +208,8 @@ body {
   overflow: hidden;
   box-shadow: var(--dd-shadow);
   background: #7ea6c9;
-  touch-action: pan-y;   /* <-- nuevo */
-  user-select: none;     /* <-- nuevo */
+  touch-action: pan-y;
+  user-select: none;
 }
 .dd-banner__slide {
   position: absolute;
@@ -252,11 +220,8 @@ body {
   transform: scale(1);
   transition: opacity 1s ease-in-out, transform 5s ease-out;
 }
-.dd-banner__slide.is-active {
-  opacity: 1;
-  transform: scale(1.08);
-}
-.dd-banner__slide::after {       /* velo azulado para leer el texto */
+.dd-banner__slide.is-active { opacity: 1; transform: scale(1.08); }
+.dd-banner__slide::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -333,11 +298,7 @@ body {
 
 /* ---------- Mis reservas: encabezado + filtros ---------- */
 .dd-reservas { margin-top: 22px; }
-.dd-reservas__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
+.dd-reservas__head { display: flex; align-items: baseline; justify-content: space-between; }
 .dd-link { font-size: 11px; font-weight: 700; color: var(--dd-blue); }
 .dd-chips {
   display: flex;
@@ -364,7 +325,8 @@ body {
 .dd-list { display: grid; gap: 14px; margin-top: 14px; }
 
 .dd-card {
-  --dd-done: var(--dd-ok);   /* color de pasos completados / línea */
+  --dd-done: var(--dd-ok);
+  min-width: 0;
   background: var(--dd-surface);
   border-radius: var(--dd-radius-card);
   box-shadow: var(--dd-shadow);
@@ -384,8 +346,8 @@ body {
   color: var(--dd-navy);
 }
 .dd-card__info { flex: 1; min-width: 0; }
-.dd-card__name { font-size: 14px; font-weight: 700; color: var(--dd-navy); line-height: 1.2; }
-.dd-card__place { font-size: 10px; color: var(--dd-mut); margin-top: 2px; }
+.dd-card__name { font-size: 14px; font-weight: 700; color: var(--dd-navy); line-height: 1.2; overflow-wrap: anywhere; }
+.dd-card__place { font-size: 10px; color: var(--dd-mut); margin-top: 2px; overflow-wrap: anywhere; }
 
 /* Badges de estado */
 .dd-badge {
@@ -403,7 +365,10 @@ body {
 [data-estado="pendiente"]  .dd-badge { background: var(--dd-pend-bg); color: var(--dd-pend-fg); }
 [data-estado="aprobado"]   .dd-badge { background: var(--dd-ok-bg);   color: var(--dd-ok-fg); }
 [data-estado="en-curso"]   .dd-badge { background: var(--dd-run-bg);  color: var(--dd-run-fg); }
-[data-estado="finalizado"] .dd-badge { background: var(--dd-end-bg);  color: var(--dd-end-fg); }
+[data-estado="finalizado"] .dd-badge,
+[data-estado="cancelado"]  .dd-badge,
+[data-estado="vencido"]    .dd-badge { background: var(--dd-end-bg);  color: var(--dd-end-fg); }
+[data-estado="rechazado"]  .dd-badge { background: var(--dd-danger-soft); color: var(--dd-danger); }
 
 /* ---------- Línea de tiempo (4 pasos) ---------- */
 .dd-steps {
@@ -419,7 +384,7 @@ body {
   text-align: center;
 }
 .dd-step__meta {
-  min-height: 26px;                 /* alinea los puntos aunque un meta tenga 2 líneas */
+  min-height: 26px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -442,13 +407,12 @@ body {
 .dd-step__dot svg { width: 10px; height: 10px; stroke-width: 3; }
 .dd-step__label { font-size: 9px; color: var(--dd-mut); }
 
-/* tramo de línea que llega a cada paso (del 2.º al 4.º) */
 .dd-step:not(:first-child)::before {
   content: "";
   position: absolute;
   right: 50%;
   width: 100%;
-  top: calc(26px + 4px + 8px - 2px);   /* meta + margen + radio punto - mitad grosor */
+  top: calc(26px + 4px + 8px - 2px);
   height: 4px;
   background: var(--dd-neutral);
 }
@@ -458,6 +422,7 @@ body {
 .dd-step.is-done .dd-step__dot { background: var(--dd-done); }
 [data-estado="pendiente"] .dd-step.is-current .dd-step__dot { background: var(--dd-pend); }
 [data-estado="en-curso"]  .dd-step.is-current .dd-step__dot { background: var(--dd-blue); }
+[data-estado="rechazado"] .dd-step.is-current .dd-step__dot { background: var(--dd-danger); }
 
 /* ---------- Acciones de la tarjeta ---------- */
 .dd-card__actions {
@@ -482,6 +447,7 @@ body {
   cursor: pointer;
 }
 .dd-btn:focus-visible { outline: 2px solid var(--dd-blue); outline-offset: 2px; }
+.dd-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .dd-btn svg { width: 12px; height: 12px; }
 .dd-btn--ghost   { background: var(--dd-neutral); color: var(--dd-text); }
 .dd-btn--primary { background: var(--dd-blue-soft); color: var(--dd-blue); border-color: var(--dd-blue); }
@@ -518,6 +484,40 @@ body {
 .dd-sidebar,
 .dd-topbar { display: none; }
 
+/* ---------- Móvil/tablet: botones más cómodos de tocar ---------- */
+@media (max-width: 1023px) {
+  .dd-btn { padding: 9px 12px; font-size: 12px; min-height: 38px; }
+}
+
+/* ---------- Pantallas pequeñas ---------- */
+@media (max-width: 640px) {
+  .dd-card__actions { flex-wrap: wrap; }
+  .dd-card__actions .tt-btns { flex-wrap: wrap; margin-left: auto; }
+
+  .dd-step__meta { font-size: 9px; overflow-wrap: anywhere; padding: 0 2px; }
+  .dd-step__label { font-size: 9.5px; }
+
+  .dd-card__top { flex-wrap: wrap; }
+  .dd-card__info { flex: 1 1 140px; }
+
+  .tt-stat { padding: 10px; gap: 8px; }
+  .tt-stat__n { font-size: 20px; }
+
+  .ss-card { padding: 16px 12px; }
+  .ss-labs { grid-template-columns: 1fr 1fr; }
+  .ss-mats { grid-template-columns: 1fr; }
+  .ss-sum__row dt { width: 90px; }
+  .ss-actions { flex-direction: column-reverse; align-items: stretch; }
+  .ss-actions__nav { margin-left: 0; justify-content: space-between; }
+  .ss-actions .ss-btn { width: 100%; }
+  .ss-actions__nav .ss-btn { flex: 1; }
+}
+
+@media (max-width: 360px) {
+  .dd-banner__text { font-size: 18px; }
+  .dd-service { font-size: 11.5px; padding: 10px; }
+}
+
 /* =========================================================
    ESCRITORIO ≥ 1024px
    ========================================================= */
@@ -530,12 +530,10 @@ body {
     grid-template-areas: "side top" "side main";
   }
 
-  /* móvil off */
   .dd-header,
   .dd-bottom-nav,
   .dd-services { display: none; }
 
-  /* Sidebar */
   .dd-sidebar {
     grid-area: side;
     display: flex;
@@ -572,7 +570,6 @@ body {
   .dd-nav svg { width: 20px; height: 20px; flex-shrink: 0; }
   .dd-sidebar__footer { margin-top: auto; align-self: center; height: 120px; width: auto; }
 
-  /* Topbar */
   .dd-topbar {
     grid-area: top;
     display: flex;
@@ -583,14 +580,13 @@ body {
     color: var(--dd-navy);
   }
 
-  /* Contenido */
   .dd-main {
     grid-area: main;
     width: 100%;
     max-width: none;
     padding: 0 36px 40px;
   }
-  .dd-title { font-size: 30px; }
+  .dd-title { font-size: 30px; margin-top: 0; }
   .dd-subtitle { font-size: 16px; color: var(--dd-text); }
 
   .dd-banner { height: 220px; margin-top: 20px; border-radius: 22px; }
@@ -598,10 +594,9 @@ body {
 
   .dd-reservas { margin-top: 24px; }
   .dd-section-title { font-size: 18px; }
-  .dd-link { display: none; }              /* "Ver todas" no se usa en web */
+  .dd-link { display: none; }
   .dd-chip { font-size: 12px; padding: 6px 16px; }
 
-  /* Tarjeta horizontal */
   .dd-card { padding: 16px 22px 12px; }
   .dd-card__top {
     display: grid;
@@ -614,23 +609,13 @@ body {
   .dd-card__place { font-size: 11px; }
   .dd-badge { font-size: 11px; padding: 4px 14px; }
 
-  /* los pasos se alinean bajo el nombre, ocupando ~70% del ancho */
-  .dd-steps {
-    margin: -6px 0 0 54px;
-    max-width: 620px;
-  }
+  .dd-steps { margin: -6px 0 0 54px; max-width: 620px; }
   .dd-step__meta { font-size: 10px; min-height: 30px; }
   .dd-step:not(:first-child)::before { top: calc(30px + 4px + 8px - 2px); }
   .dd-step__label { font-size: 10.5px; }
 
-  .dd-btn { font-size: 11px; padding: 6px 12px; }
+  .dd-btn { font-size: 11px; padding: 6px 12px; min-height: 0; }
   .dd-btn svg { width: 13px; height: 13px; }
-}
-
-/* ---------- Pantallas muy pequeñas ---------- */
-@media (max-width: 360px) {
-  .dd-banner__text { font-size: 18px; }
-  .dd-service { font-size: 11.5px; padding: 10px; }
 }
 
 /* ---------- Accesibilidad ---------- */
@@ -638,7 +623,7 @@ body {
   .dd-dot, .dd-nav a, .dd-service { transition: none; }
 }
 
-/* ---------- Estado vacío: "Aún no hay reservas" ---------- */
+/* ---------- Estado vacío ---------- */
 .dd-empty {
   display: flex;
   flex-direction: column;
@@ -670,7 +655,7 @@ body {
   .dd-empty__text { font-size: 13px; }
 }
 
-/* ---------- Sidebar: versión mini y versión completa ---------- */
+/* ---------- Sidebar: versión mini y completa ---------- */
 .dd-sidebar__logo-mini,
 .dd-sidebar__footer-mini { display: none; }
 
@@ -680,7 +665,6 @@ body {
   .dd-sidebar { overflow: hidden; }
   .dd-nav__label { white-space: nowrap; }
 
-  /* colapsado: solo íconos */
   .is-collapsed .dd-sidebar { padding: 18px 8px 20px; align-items: center; }
   .is-collapsed .dd-sidebar__logo,
   .is-collapsed .dd-sidebar__footer,
@@ -706,11 +690,10 @@ body {
     border-radius: 12px;
   }
 }
-/* =========================================================
-   SOLICITAR LABORATORIO (asistente por pasos)
-   Pégalo al FINAL de globals.css. Usa los tokens --dd-* existentes.
-   ========================================================= */
 
+/* =========================================================
+   FORMULARIOS POR PASOS (.ss-)
+   ========================================================= */
 .ss-card {
   max-width: 860px;
   margin-top: 16px;
@@ -723,7 +706,7 @@ body {
   .ss-card { padding: 28px 32px; }
 }
 
-/* ---------- Stepper: azul = actual, verde = completado, gris = pendiente ---------- */
+/* Stepper */
 .ss-steps {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -731,6 +714,7 @@ body {
   padding: 0;
   list-style: none;
 }
+.ss-steps--3 { grid-template-columns: repeat(3, 1fr); }
 .ss-step {
   position: relative;
   display: flex;
@@ -771,7 +755,7 @@ body {
   .ss-step__label { font-size: 12.5px; }
 }
 
-/* ---------- Campos ---------- */
+/* Campos */
 .ss-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .ss-fieldset[hidden] { display: none; }
 .ss-legend {
@@ -799,7 +783,7 @@ body {
 .ss-fieldset .input[aria-invalid="true"] { border-color: var(--dd-danger); background: var(--dd-danger-soft); }
 .ss-error { margin-top: 6px; font-size: 12px; color: var(--dd-danger); }
 
-/* ---------- Tarjetas de laboratorio ---------- */
+/* Tarjetas de laboratorio */
 .ss-labs {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -832,8 +816,10 @@ body {
 .ss-lab__meta { font-size: 11px; color: var(--dd-mut); }
 .ss-lab.is-selected { border-color: var(--dd-blue); background: var(--dd-blue-soft); }
 .ss-lab.is-selected .ss-lab__icon { background: var(--dd-blue); color: #fff; }
+.ss-lab.is-ocupado { opacity: 0.55; cursor: not-allowed; background: var(--dd-bg); }
+.ss-lab.is-ocupado:hover { border-color: var(--dd-neutral); }
 
-/* ---------- Resumen (paso 4) ---------- */
+/* Resumen */
 .ss-sum {
   margin-bottom: 14px;
   padding: 14px 16px;
@@ -856,7 +842,7 @@ body {
 .ss-sum__row dt { width: 110px; flex-shrink: 0; color: var(--dd-mut); }
 .ss-sum__row dd { margin: 0; color: var(--dd-text); font-weight: 500; overflow-wrap: anywhere; }
 
-/* ---------- Botones ---------- */
+/* Botones */
 .ss-actions {
   display: flex;
   align-items: center;
@@ -883,12 +869,13 @@ body {
   cursor: pointer;
 }
 .ss-btn:focus-visible { outline: 2px solid var(--dd-blue); outline-offset: 2px; }
+.ss-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .ss-btn--primary { background: var(--dd-blue); color: #fff; }
 .ss-btn--primary:hover { background: #2230c4; }
 .ss-btn--ghost { background: var(--dd-neutral); color: var(--dd-text); }
 .ss-btn--danger { background: var(--dd-danger-soft); color: var(--dd-danger); border-color: var(--dd-danger); }
 
-/* ---------- Pantalla de éxito ---------- */
+/* Pantalla de éxito */
 .ss-done { display: flex; flex-direction: column; align-items: center; text-align: center; padding-block: 40px; }
 .ss-done__icon {
   display: grid;
@@ -904,15 +891,7 @@ body {
 .ss-done__text { max-width: 420px; margin-top: 6px; font-size: 14px; color: var(--dd-mut); }
 .ss-done .ss-actions { margin-top: 22px; }
 
-/* =========================================================
-   SOLICITAR MATERIAL (stock) – estilos adicionales
-   Pégalo al FINAL de globals.css, debajo de los estilos .ss- de solicitar.
-   ========================================================= */
-
-/* Stepper de 3 pasos */
-.ss-steps--3 { grid-template-columns: repeat(3, 1fr); }
-
-/* Selector de materiales con cantidad */
+/* ---------- Solicitar material ---------- */
 .ss-mats {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -930,7 +909,6 @@ body {
 }
 .ss-mat:hover { border-color: var(--dd-blue); }
 .ss-mat.is-selected { border-color: var(--dd-blue); background: var(--dd-blue-soft); }
-
 .ss-mat__main {
   flex: 1;
   display: flex;
@@ -958,7 +936,6 @@ body {
 }
 .ss-mat.is-selected .ss-mat__check { background: var(--dd-blue); border-color: var(--dd-blue); }
 .ss-mat__name { font-size: 13px; font-weight: 600; color: var(--dd-navy); line-height: 1.25; }
-
 .ss-qty {
   flex-shrink: 0;
   display: inline-flex;
@@ -987,14 +964,8 @@ body {
   color: var(--dd-navy);
 }
 
-/* =========================================================
-   ACTA DE COMPROMISO (estudiante) – estilos adicionales
-   Pégalo al FINAL de globals.css, debajo de los estilos de solicitar y stock.
-   ========================================================= */
-
+/* ---------- Acta de compromiso ---------- */
 .ss-count { margin: -6px 0 14px; font-size: 13px; color: var(--dd-mut); }
-
-/* Lista de estudiantes */
 .ss-stus { display: grid; gap: 10px; }
 .ss-stu {
   display: grid;
@@ -1024,7 +995,6 @@ body {
 .ss-add { margin-top: 14px; }
 .ss-add:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* Compromiso y aceptación */
 .ss-rules { margin: 10px 0 0; padding-left: 20px; font-size: 13px; color: var(--dd-text); }
 .ss-rules li { margin-bottom: 4px; }
 .ss-check {
@@ -1037,12 +1007,10 @@ body {
   cursor: pointer;
 }
 .ss-check input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--dd-blue); flex-shrink: 0; }
-/* =========================================================
-   DASHBOARD DEL TÉCNICO – estilos adicionales
-   Pégalo al FINAL de globals.css. Usa los tokens --dd-* existentes.
-   ========================================================= */
 
-/* Resumen de pendientes */
+/* =========================================================
+   TÉCNICO (.tt-)
+   ========================================================= */
 .tt-stats {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1075,20 +1043,13 @@ body {
 .tt-stat__n { font-size: 22px; font-weight: 800; line-height: 1; color: var(--dd-navy); }
 .tt-stat__t { margin-top: 3px; font-size: 11px; color: var(--dd-mut); }
 
-/* Tarjeta de solicitud */
 .tt-meta { margin-top: 10px; font-size: 11px; color: var(--dd-mut); }
 .tt-btns { display: flex; gap: 8px; }
-[data-estado="rechazado"] .dd-badge { background: var(--dd-danger-soft); color: var(--dd-danger); }
-/* =========================================================
-   SOLICITUDES DEL TÉCNICO – estilos adicionales
-   Pégalo al FINAL de globals.css, debajo de tecnico-estilos.css.
-   ========================================================= */
 
 .tt-search { margin-top: 12px; max-width: 360px; }
 .tt-search .input { border-color: var(--dd-neutral); }
 .tt-search .input:focus { outline-color: var(--dd-blue); }
 
-/* Aviso de choque de horario */
 .tt-warn {
   display: flex;
   align-items: center;
@@ -1103,7 +1064,6 @@ body {
 }
 .tt-warn svg { flex-shrink: 0; }
 
-/* Cuadro para escribir el motivo del rechazo */
 .tt-reject {
   display: grid;
   gap: 8px;
@@ -1116,40 +1076,9 @@ body {
 .tt-reject .input { border-color: var(--dd-neutral); }
 .tt-reject .input:focus { outline-color: var(--dd-blue); }
 
-/* Paso rechazado: el punto actual va en rojo */
-[data-estado="rechazado"] .dd-step.is-current .dd-step__dot { background: var(--dd-danger); }
-
-/* ---------- Modal de detalles ---------- */
-.dm-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: rgba(27, 31, 94, 0.45);
-}
-.dm-box {
-  width: 100%;
-  max-width: 460px;
-  max-height: 85dvh;
-  overflow-y: auto;
-  padding: 18px;
-  background: var(--dd-surface);
-  border-radius: var(--dd-radius-card);
-  box-shadow: var(--dd-shadow);
-}
-.dm-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-.dm-title { font-size: 17px; font-weight: 800; color: var(--dd-navy); }
-
-.ss-lab.is-ocupado {
-  opacity: 0.55;
-  cursor: not-allowed;
-  background: var(--dd-bg);
-}
-.ss-lab.is-ocupado:hover { border-color: var(--dd-neutral); }
-
-/* ---------- Modal de detalles ---------- */
+/* =========================================================
+   MODAL DE DETALLES (.dm-)
+   ========================================================= */
 .dm-overlay {
   position: fixed;
   inset: 0;
@@ -1178,11 +1107,6 @@ body {
 .dm-title { font-size: 17px; font-weight: 800; color: var(--dd-navy); }
 
 @media (min-width: 640px) {
-  .dm-overlay { align-items: center; }
+  .dm-overlay { align-items: center; padding: 16px; }
   .dm-box { border-radius: 18px; padding-bottom: 16px; }
-}
-
-/* Botones más cómodos de tocar en móvil */
-@media (max-width: 1023px) {
-  .dd-btn { padding: 9px 12px; font-size: 12px; min-height: 38px; }
 }
