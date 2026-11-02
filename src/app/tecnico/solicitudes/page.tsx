@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { Monitor, Check, X, Clock, ClipboardCheck, TriangleAlert, Eye } from "lucide-react";
 import ShellDocente, { MENU_TECNICO } from "@/components/docente/ShellDocente";
-import SolicitudesMaterial from "@/components/Solicitudesmateriales";
+import SolicitudesMaterial from "@/components/forms/Solicitudesmateriales";
 import DetalleModal from "@/components/DetalleModal";
 import {
   cargarSolicitudes, responderReserva, mensajeError, fechaLarga,
   type SolicitudTec,
-} from "@/lib/reservas";
+} from "@/lib/servicios/reservas";
 
 type Estado = SolicitudTec["estado"];
 type Paso = "done" | "current" | "todo";

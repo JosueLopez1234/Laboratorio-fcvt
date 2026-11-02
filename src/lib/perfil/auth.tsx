@@ -2,8 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { AuthError, Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
-import { registrarPush, quitarPush } from "@/lib/push";
+import { supabase } from "@/lib/servicios/supabase";
+import { registrarPush, quitarPush } from "@/lib/notificaciones/push";
 
 export type RolApp = "estudiante" | "docente" | "tecnico" | "admin";
 export type Perfil = { id: string; nombre: string; rol: RolApp };

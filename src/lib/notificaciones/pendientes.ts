@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/servicios/supabase";
 
 /** Cuántas fallas abiertas y solicitudes de material pendientes hay (para el Dashboard del técnico). */
 export async function contarPendientes() {

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CalendarCheck, LogIn, Wrench, Package } from "lucide-react";
 import ShellDocente from "@/components/docente/ShellDocente";
 import BannerCarrusel from "@/components/docente/BannerCarrusel";
-import MisReservas from "@/components/MisReservas";
+import MisReservas from "@/components/forms/MisReservas";
 
 const MENU = [
   { href: "/docente/solicitar", t: "Reservar laboratorio", i: CalendarCheck },

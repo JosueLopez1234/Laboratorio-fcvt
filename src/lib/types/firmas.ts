@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/servicios/supabase";
 
 export async function subirFirma(dataUrl: string): Promise<string> {
   const { data: { user } } = await supabase.auth.getUser();

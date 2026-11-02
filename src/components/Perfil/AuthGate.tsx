@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useAuth, type RolApp } from "@/lib/auth";
+import { useAuth, type RolApp } from "@/lib/perfil/auth";
 
 /* Qué roles pueden abrir cada zona. Esto es comodidad de la interfaz:
    la seguridad real son las reglas RLS de la base de datos. */

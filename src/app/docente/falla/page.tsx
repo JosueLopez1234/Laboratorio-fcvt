@@ -1,4 +1,4 @@
-import FormFalla from "@/components/FormFalla";
+import FormFalla from "@/components/forms/FormFalla";
 
 export default function Page() {
   return <FormFalla />;

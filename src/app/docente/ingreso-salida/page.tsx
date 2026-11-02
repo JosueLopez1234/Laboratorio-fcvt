@@ -3,8 +3,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Monitor, Check, ArrowLeft, ArrowRight, Save, TriangleAlert } from "lucide-react";
 import ShellDocente from "@/components/docente/ShellDocente";
-import { Firma } from "@/components/ui";
-import { LABS } from "@/lib/datos";
+import { Firma } from "@/components/layouts/ui";
+import { LABS } from "@/lib/types/datos";
 
 /* TODO: reemplazar por el usuario logueado cuando tengas la sesión */
 const USUARIO = "Juan Pérez";

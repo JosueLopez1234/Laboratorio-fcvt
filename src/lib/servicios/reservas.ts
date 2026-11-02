@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/servicios/supabase";
 
 /* ---------- Tipos ---------- */
 export type EstadoUI = "pendiente" | "aprobado" | "en-curso" | "finalizado" | "rechazado" | "cancelado";

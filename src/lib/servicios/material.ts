@@ -1,5 +1,5 @@
-import { supabase } from "@/lib/supabase";
-import { usuarioId } from "@/lib/sesion";
+import { supabase } from "@/lib/servicios/supabase";
+import { usuarioId } from "@/lib/perfil/sesion";
 
 export type ItemMaterial = { material: string; cantidad: number };
 

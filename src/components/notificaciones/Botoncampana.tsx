@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import { useNotificaciones } from "@/lib/notificaciones";
+import { useNotificaciones } from "@/lib/notificaciones/notificaciones";
 
 export default function BotonCampana() {
   const { noLeidas } = useNotificaciones();

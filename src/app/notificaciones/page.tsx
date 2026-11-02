@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell, BellRing, Check, CheckCheck, Send, Clock, BellOff } from "lucide-react";
 import ShellDocente, { MENU_ESTUDIANTE, MENU_TECNICO } from "@/components/docente/ShellDocente";
-import { useNotificaciones } from "@/lib/notificaciones";
+import { useNotificaciones } from "@/lib/notificaciones/notificaciones";
 import {
   estadoPermiso, pedirPermiso, programarAlerta, esApp, type PermisoAlertas,
-} from "@/lib/alertasLocales";
+} from "@/lib/notificaciones/alertasLocales";
 
 type Filtro = "no-leidas" | "todas" | "leidas";
 const FILTROS: { id: Filtro; t: string }[] = [

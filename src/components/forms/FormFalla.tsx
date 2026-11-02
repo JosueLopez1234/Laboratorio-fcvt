@@ -3,10 +3,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, ArrowLeft, ArrowRight, Send } from "lucide-react";
 import ShellDocente, { type ItemMenu } from "@/components/docente/ShellDocente";
-import { CARRERAS, PERIODOS } from "@/lib/datos";
-import { crearFalla } from "@/lib/fallas";
-import { mensajeError } from "@/lib/reservas";
-import { usePerfil } from "@/lib/perfil";
+import { CARRERAS, PERIODOS } from "@/lib/types/datos";
+import { crearFalla } from "@/lib/servicios/fallas";
+import { mensajeError } from "@/lib/servicios/reservas";
+import { usePerfil } from "@/lib/perfil/perfil";
 
 const PASOS = ["Equipo", "Falla", "Revisión"];
 

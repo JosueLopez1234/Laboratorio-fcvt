@@ -6,7 +6,7 @@ import { Monitor, Eye, TriangleAlert, Clock, Check, Play, X, CalendarX } from "l
 import {
   cargarMisReservas, cancelarReserva, mensajeError,
   type ReservaUI, type EstadoUI,
-} from "@/lib/reservas";
+} from "@/lib/servicios/reservas";
 import DetalleModal from "@/components/DetalleModal";
 
 type Paso = "done" | "current" | "todo";

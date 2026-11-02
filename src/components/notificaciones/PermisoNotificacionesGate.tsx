@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BellRing } from "lucide-react";
 import {
   abrirAjustes, esApp, estadoPermiso, pedirPermiso, type PermisoAlertas,
-} from "@/lib/alertasLocales";
+} from "@/lib/notificaciones/alertasLocales";
 
 /* Bloquea la app (solo en el APK) hasta que las notificaciones estén activas.
    Vuelve a comprobar cada vez que la app regresa al primer plano, así que si

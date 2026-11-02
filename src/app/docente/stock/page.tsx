@@ -3,11 +3,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { Check, ArrowLeft, ArrowRight, Send, Minus, Plus } from "lucide-react";
 import ShellDocente from "@/components/docente/ShellDocente";
-import { Firma } from "@/components/ui";
-import { LABS, PERIODOS } from "@/lib/datos";
-import { crearSolicitudMaterial } from "@/lib/material";
-import { mensajeError } from "@/lib/reservas";
-import { usePerfil } from "@/lib/perfil";
+import { Firma } from "@/components/layouts/ui";
+import { LABS, PERIODOS } from "@/lib/types/datos";
+import { crearSolicitudMaterial } from "@/lib/servicios/material";
+import { mensajeError } from "@/lib/servicios/reservas";
+import { usePerfil } from "@/lib/perfil/perfil";
 
 const PASOS = ["Solicitud", "Materiales", "Revisión"];
 

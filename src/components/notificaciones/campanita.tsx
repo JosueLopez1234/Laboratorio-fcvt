@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/servicios/supabase";
 
 type Aviso = {
   id: string;

@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import DashboardDocente from "@/components/DashboardDocente";
-import DashboardEstudiante from "@/components/Dashboardestudiante";
-import DashboardTecnico from "@/components/DashboardTecnico";
-import { useAuth } from "@/lib/auth";
+import DashboardDocente from "@/components/dashboard/DashboardDocente";
+import DashboardEstudiante from "@/components/dashboard/Dashboardestudiante";
+import DashboardTecnico from "@/components/dashboard/DashboardTecnico";
+import { useAuth } from "@/lib/perfil/auth";
 
 export default function Home() {
   const { perfil } = useAuth();

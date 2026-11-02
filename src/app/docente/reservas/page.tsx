@@ -1,7 +1,7 @@
 "use client";
 
 import ShellDocente from "@/components/docente/ShellDocente";
-import MisReservas from "@/components/MisReservas";
+import MisReservas from "@/components/forms/MisReservas";
 
 export default function Reservas() {
   return (

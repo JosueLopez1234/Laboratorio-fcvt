@@ -8,8 +8,8 @@ import {
   ClipboardList, Cog, Boxes, CalendarDays,
   type LucideIcon,
 } from "lucide-react";
-import BotonCampana from "@/components/Botoncampana";
-import BotonPerfil from "@/components/BotonPerfil";
+import BotonCampana from "@/components/notificaciones/Botoncampana";
+import BotonPerfil from "@/components/Perfil/BotonPerfil";
 
 export type ItemMenu = { href: string; t: string; i: LucideIcon };
 

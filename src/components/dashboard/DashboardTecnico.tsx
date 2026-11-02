@@ -7,9 +7,9 @@ import ShellDocente, { MENU_TECNICO } from "@/components/docente/ShellDocente";
 import {
   cargarSolicitudes, responderReserva, mensajeError, fechaLarga,
   type SolicitudTec,
-} from "@/lib/reservas";
+} from "@/lib/servicios/reservas";
 import DetalleModal from "@/components/DetalleModal";
-import { contarPendientes } from "@/lib/pendientes";
+import { contarPendientes } from "@/lib/notificaciones/pendientes";
 
 type Estado = SolicitudTec["estado"];
 

@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/servicios/supabase";
 
 export type Rol = "Docente" | "Estudiante" | "Técnico";
 

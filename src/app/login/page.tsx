@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/lib/perfil/auth";
 
 type Modo = "entrar" | "registro";
 

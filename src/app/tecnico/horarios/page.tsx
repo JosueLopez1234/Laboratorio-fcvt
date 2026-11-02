@@ -3,9 +3,9 @@
 import { Fragment, useEffect, useState } from "react";
 import { CalendarX } from "lucide-react";
 import ShellDocente, { MENU_TECNICO } from "@/components/docente/ShellDocente";
-import { LABS } from "@/lib/datos";
-import { DIAS, HORA_INICIO, cargarHorarios, type Bloque } from "@/lib/horarios";
-import { cargarReservasHoy, type OcupacionHoy } from "@/lib/reservas";
+import { LABS } from "@/lib/types/datos";
+import { DIAS, HORA_INICIO, cargarHorarios, type Bloque } from "@/lib/types/horarios";
+import { cargarReservasHoy, type OcupacionHoy } from "@/lib/servicios/reservas";
 
 const ALTO_FILA = 64;
 const RECESO = 12; // la fila 12:00-13:00 no tiene clases en los horarios impresos

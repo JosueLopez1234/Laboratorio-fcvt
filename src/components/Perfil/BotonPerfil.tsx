@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { LogOut, User } from "lucide-react";
-import { ETIQUETA_ROL, useAuth } from "@/lib/auth";
+import { ETIQUETA_ROL, useAuth } from "@/lib/perfil/auth";
 
 /* Reemplaza al botón "Perfil": muestra el nombre, el rol y cerrar sesión. */
 export default function BotonPerfil() {

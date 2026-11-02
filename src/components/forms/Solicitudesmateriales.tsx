@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Package, Check, X, Clock, ClipboardCheck } from "lucide-react";
-import { cargarMaterialTec, responderMaterial, type MaterialTec } from "@/lib/material";
-import { mensajeError } from "@/lib/reservas";
+import { cargarMaterialTec, responderMaterial, type MaterialTec } from "@/lib/servicios/material";
+import { mensajeError } from "@/lib/servicios/reservas";
 
 type Estado = MaterialTec["estado"];
 type Filtro = "todas" | Estado;

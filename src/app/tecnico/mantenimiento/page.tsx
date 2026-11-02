@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import { Wrench, Check, X, Clock, ArrowLeft, ArrowRight, Send, Plus, ClipboardCheck } from "lucide-react";
 import ShellDocente, { MENU_TECNICO } from "@/components/docente/ShellDocente";
-import { Firma } from "@/components/ui";
-import { LABS, PERIODOS } from "@/lib/datos";
+import { Firma } from "@/components/layouts/ui";
+import { LABS, PERIODOS } from "@/lib/types/datos";
 import {
   cargarFallas, marcarEnReparacion, guardarMantenimiento,
   type FallaTec, type EstadoFalla,
-} from "@/lib/fallas";
-import { mensajeError } from "@/lib/reservas";
-import { usePerfil } from "@/lib/perfil";
+} from "@/lib/servicios/fallas";
+import { mensajeError } from "@/lib/servicios/reservas";
+import { usePerfil } from "@/lib/perfil/perfil";
 
 type Estado = EstadoFalla;
 type Paso = "done" | "current" | "todo";

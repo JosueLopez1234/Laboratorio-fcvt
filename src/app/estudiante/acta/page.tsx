@@ -3,8 +3,8 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { Check, ArrowLeft, ArrowRight, Send, Plus, X } from "lucide-react";
 import ShellDocente, { MENU_ESTUDIANTE } from "@/components/docente/ShellDocente";
-import { Firma } from "@/components/ui";
-import { CARRERAS, PERIODOS } from "@/lib/datos";
+import { Firma } from "@/components/layouts/ui";
+import { CARRERAS, PERIODOS } from "@/lib/types/datos";
 
 const MAX_EST = 40;
 const PASOS = ["Datos", "Estudiantes", "Firma"];

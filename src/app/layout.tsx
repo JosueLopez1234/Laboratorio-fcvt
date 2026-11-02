@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/lib/auth";
-import AuthGate from "@/components/AuthGate";
-import PermisoNotificacionesGate from "@/components/PermisoNotificacionesGate";
+import { AuthProvider } from "@/lib/perfil/auth";
+import AuthGate from "@/components/Perfil/AuthGate";
+import PermisoNotificacionesGate from "@/components/notificaciones/PermisoNotificacionesGate";
 
 const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-montserrat" });
 

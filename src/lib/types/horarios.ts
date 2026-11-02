@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/servicios/supabase";
 
 /* [hora inicio, hora fin, asignatura, docente]: misma forma que antes,
    así la pantalla de horarios casi no cambia. */

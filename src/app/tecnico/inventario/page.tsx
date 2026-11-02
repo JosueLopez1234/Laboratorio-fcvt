@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/servicios/supabase";
 import {
   Search,
   FileSpreadsheet,
@@ -19,7 +19,7 @@ import {
   Printer,
   Monitor,
 } from "lucide-react";
-import { Pantalla } from "@/components/ui";
+import { Pantalla } from "@/components/layouts/ui";
 
 type FilaBD = {
   id: string;

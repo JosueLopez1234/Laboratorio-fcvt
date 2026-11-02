@@ -3,14 +3,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Monitor, Check, ArrowLeft, ArrowRight, Send } from "lucide-react";
 import ShellDocente from "@/components/docente/ShellDocente";
-import { Firma } from "@/components/ui";
-import { LABS, CARRERAS, PERIODOS } from "@/lib/datos";
+import { Firma } from "@/components/layouts/ui";
+import { LABS, CARRERAS, PERIODOS } from "@/lib/types/datos";
 import {
   crearReserva, choqueConClase, mensajeError, cargarOcupacionFecha, type OcupacionDia,
-} from "@/lib/reservas";
-import { cargarHorarios, type Bloque } from "@/lib/horarios";
-import { usePerfil } from "@/lib/perfil";
-import { subirFirma } from "@/lib/firmas"; // NUEVO
+} from "@/lib/servicios/reservas";
+import { cargarHorarios, type Bloque } from "@/lib/types/horarios";
+import { usePerfil } from "@/lib/perfil/perfil";
+import { subirFirma } from "@/lib/types/firmas"; // NUEVO
 
 /* TODO: si tienes la capacidad real de cada laboratorio, ponla aquí. */
 const CAPACIDAD_DEFECTO = 40;

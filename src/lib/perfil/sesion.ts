@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/servicios/supabase";
 
 /** Id del usuario que inició sesión. */
 export async function usuarioId() {
