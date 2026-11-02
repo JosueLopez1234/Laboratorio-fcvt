@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
-import * as XLSX from "xlsx";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   Search,
-  Upload,
   FileSpreadsheet,
   Package,
   ClipboardList,
@@ -13,38 +12,31 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
-  Filter,
-  Users,
-  MapPin,
-  X,
-  ChartNoAxesCombined,
   Barcode,
-  RefreshCw,
-  Grid2X2,
-  List,
-  ChevronDown,
-  Laptop,
   Armchair,
+  Laptop,
   Fan,
   Printer,
   Monitor,
-  Eye,
-  Tag,
 } from "lucide-react";
 import { Pantalla } from "@/components/ui";
 
-type Columnas = {
-  filaEncabezado: number;
-  item: number;
-  cantidad: number;
-  detalle: number;
-  marca: number;
-  serie: number;
-  codigo: number;
-  custodioAnterior: number;
-  observaciones: number[];
-  custodio: number;
-  ubicacion: number;
+type FilaBD = {
+  id: string;
+  clave_origen: string | null;
+  hoja: string;
+  item: string | null;
+  cantidad: number | string | null;
+  detalle: string | null;
+  marca: string | null;
+  serie: string | null;
+  codigo: string | null;
+  custodio_anterior: string | null;
+  observacion_1: string | null;
+  observacion_2: string | null;
+  custodio: string | null;
+  ubicacion: string | null;
+  grupo: string | null;
 };
 
 type Bien = {
@@ -89,127 +81,41 @@ function normalizar(valor: unknown): string {
     .replace(/\s+/g, " ");
 }
 
-function texto(fila: unknown[], columna: number): string {
-  if (columna < 0 || columna >= fila.length) return "";
-  return String(fila[columna] ?? "").trim();
-}
-
-function numero(valor: string): number {
-  const limpio = valor.replace(/\s/g, "").replace(",", ".");
-  return limpio ? Number(limpio) : Number.NaN;
-}
-
-function indiceEncabezado(encabezados: string[], candidatos: string[]): number {
-  // Primero prioriza coincidencias exactas: CUSTODIO no debe confundirse
-  // con CUSTODIO ANTERIOR en las hojas Agropecuaria y Biología Pesquera.
-  const exacto = encabezados.findIndex((h) => candidatos.includes(h));
-  if (exacto >= 0) return exacto;
-  return encabezados.findIndex((h) =>
-    candidatos.some((c) => h.startsWith(`${c} `))
-  );
-}
-
-function detectarColumnas(fila: unknown[], filaEncabezado: number): Columnas | null {
-  const encabezados = fila.map(normalizar);
-  const buscar = (...candidatos: string[]) => indiceEncabezado(encabezados, candidatos);
-
-  const item = buscar("ITEM", "ITEMS", "N ITEM", "NUMERO DE ITEM");
-  const cantidad = buscar("CANT", "CANTIDAD", "CANTIDAD DE BIENES");
-  const detalle = buscar("DETALLE", "DESCRIPCION", "DESCRIPCION DEL BIEN");
-  if (item < 0 || cantidad < 0 || detalle < 0) return null;
-
-  const observaciones = encabezados
-    .map((h, i) => (/^OBSERVACION(?:\s*\d*)?$/.test(h) ? i : -1))
-    .filter((i) => i >= 0);
-
+function filaABien(f: FilaBD): Bien {
   return {
-    filaEncabezado,
-    item,
-    cantidad,
-    detalle,
-    marca: buscar("MARCA"),
-    serie: buscar("SERIE", "NUMERO DE SERIE"),
-    codigo: buscar("CODIGO", "CODIGO PATRIMONIAL"),
-    custodioAnterior: buscar("CUSTODIO ANTERIOR", "CUSTODIO PREVIO"),
-    observaciones,
-    custodio: buscar("CUSTODIO", "CUSTODIO ACTUAL", "RESPONSABLE ACTUAL"),
-    ubicacion: buscar("UBICACION", "LOCALIZACION"),
+    clave: f.clave_origen || f.id,
+    hoja: f.hoja,
+    item: f.item ?? "",
+    cantidad: Number(f.cantidad ?? 0),
+    detalle: f.detalle ?? "",
+    marca: f.marca ?? "",
+    serie: f.serie ?? "",
+    codigo: f.codigo ?? "",
+    custodioAnterior: f.custodio_anterior ?? "",
+    observacion: f.observacion_1 ?? "",
+    observacion2: f.observacion_2 ?? "",
+    custodio: f.custodio ?? "",
+    ubicacion: f.ubicacion ?? "",
+    grupo: f.grupo ?? "",
   };
 }
 
-function obtenerColumnas(filas: unknown[][], nombreHoja: string): Columnas | null {
-  for (let i = 0; i < Math.min(filas.length, 50); i++) {
-    const columnas = detectarColumnas(filas[i], i);
-    if (!columnas) continue;
-
-    // En INFORMATICA, los datos del custodio están en la columna I aunque
-    // el título visual CUSTODIO esté desplazado en la fila de encabezados.
-    if (normalizar(nombreHoja) === "INFORMATICA" && columnas.custodioAnterior < 0) {
-      columnas.custodioAnterior = 8;
-    }
-    return columnas;
+async function cargarBienesInformatica(): Promise<Bien[]> {
+  const POR_PAGINA = 1000;
+  const todos: Bien[] = [];
+  for (let desde = 0; ; desde += POR_PAGINA) {
+    const { data, error } = await supabase
+      .from("bienes_inventario")
+      .select("id, clave_origen, hoja, item, cantidad, detalle, marca, serie, codigo, custodio_anterior, observacion_1, observacion_2, custodio, ubicacion, grupo")
+      .eq("hoja", "INFORMATICA")
+      .order("fila_excel", { ascending: true })
+      .range(desde, desde + POR_PAGINA - 1);
+    if (error) throw error;
+    const filas = (data ?? []) as FilaBD[];
+    todos.push(...filas.map(filaABien));
+    if (filas.length < POR_PAGINA) break;
   }
-  return null;
-}
-
-function leerBienes(libro: XLSX.WorkBook, nombreHoja: string): Bien[] {
-  const hoja = libro.Sheets[nombreHoja];
-  if (!hoja) return [];
-
-  const filas = XLSX.utils.sheet_to_json<unknown[]>(hoja, {
-    header: 1,
-    defval: "",
-    raw: false,
-  });
-  const columnas = obtenerColumnas(filas, nombreHoja);
-  if (!columnas) return [];
-
-  const bienes: Bien[] = [];
-  let grupoActual = "";
-  let ultimaFilaDeGrupo = -2;
-
-  for (let i = columnas.filaEncabezado + 1; i < filas.length; i++) {
-    const fila = filas[i];
-    const item = texto(fila, columnas.item);
-    const cantidadTexto = texto(fila, columnas.cantidad);
-    const detalle = texto(fila, columnas.detalle);
-    const itemNumero = numero(item);
-    const cantidad = numero(cantidadTexto);
-
-    const esBien = item !== "" && cantidadTexto !== "" && detalle !== "" &&
-      Number.isFinite(itemNumero) && Number.isFinite(cantidad);
-
-    if (esBien) {
-      bienes.push({
-        clave: `${nombreHoja}-${i + 1}-${item}`,
-        hoja: nombreHoja,
-        item,
-        cantidad,
-        detalle,
-        marca: texto(fila, columnas.marca),
-        serie: texto(fila, columnas.serie),
-        codigo: texto(fila, columnas.codigo),
-        custodioAnterior: texto(fila, columnas.custodioAnterior),
-        observacion: texto(fila, columnas.observaciones[0] ?? -1),
-        observacion2: texto(fila, columnas.observaciones[1] ?? -1),
-        custodio: texto(fila, columnas.custodio),
-        ubicacion: texto(fila, columnas.ubicacion),
-        grupo: grupoActual,
-      });
-      continue;
-    }
-
-    // Las filas sin ITEM ni CANT representan secciones o responsables.
-    if (!item && !cantidadTexto && detalle) {
-      if (i === ultimaFilaDeGrupo + 1 && grupoActual) {
-        grupoActual = `${grupoActual} / ${detalle}`;
-      } else {
-        grupoActual = detalle;
-      }
-      ultimaFilaDeGrupo = i;
-    }
-  }
-  return bienes;
+  return todos;
 }
 
 function textoEstado(bien: Bien): string {
@@ -352,7 +258,7 @@ function VisualBien({ bien }: { bien: Bien }) {
     Icono = Armchair;
     categoria = "Mobiliario";
     tonos = { fondo: "#fff7ed", tinta: "#c2410c", halo: "rgba(234,88,12,.12)" };
-  } else if (/LAPTOP|PORTATIL|COMPUTADOR|NOTEBOOK|SERVIDOR|CPU/.test(detalle)) {
+  } else if (/LAPTOP|PORTATIL|COMPUTADOR|NOTEBOOK|SERVIDOR|CPU/.test(detalle)) {
     Icono = Laptop;
     categoria = "Equipo informático";
     tonos = { fondo: "#eff6ff", tinta: "#2563eb", halo: "rgba(37,99,235,.12)" };
@@ -394,9 +300,9 @@ function VisualBien({ bien }: { bien: Bien }) {
 }
 
 export default function Inventario() {
-  const [libro, setLibro] = useState<XLSX.WorkBook | null>(null);
-  const [nombreArchivo, setNombreArchivo] = useState("");
-  const [hojaSeleccionada, setHojaSeleccionada] = useState("INFORMATICA");
+  const [bienes, setBienes] = useState<Bien[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const hojaSeleccionada = "INFORMATICA";
   const [busqueda, setBusqueda] = useState("");
   const [filtro, setFiltro] = useState("todos");
   const [error, setError] = useState("");
@@ -404,34 +310,12 @@ export default function Inventario() {
   const [modoVista, setModoVista] = useState<"tarjetas" | "tabla">("tarjetas");
   const [bienExpandido, setBienExpandido] = useState<string | null>(null);
 
-  async function importarExcel(evento: ChangeEvent<HTMLInputElement>) {
-    const input = evento.currentTarget;
-    const archivo = input.files?.[0];
-    if (!archivo) return;
-    setError("");
-    try {
-      const buffer = await archivo.arrayBuffer();
-      const nuevoLibro = XLSX.read(buffer, { type: "array" });
-      if (!nuevoLibro.SheetNames.length) {
-        setError("El archivo no contiene hojas que se puedan leer.");
-        return;
-      }
-      const hojaInicial = nuevoLibro.SheetNames.find((n) => normalizar(n) === "INFORMATICA") ?? nuevoLibro.SheetNames[0];
-      setLibro(nuevoLibro);
-      setNombreArchivo(archivo.name);
-      setHojaSeleccionada(hojaInicial);
-      setBusqueda("");
-      setFiltro("todos");
-      setPagina(1);
-    } catch {
-      setError("No se pudo leer el archivo. Selecciona un Excel válido (.xlsx o .xls).");
-    } finally {
-      input.value = "";
-    }
-  }
-
-  const nombresHojas = libro?.SheetNames ?? [];
-  const bienes = useMemo(() => (libro ? leerBienes(libro, hojaSeleccionada) : []), [libro, hojaSeleccionada]);
+  useEffect(() => {
+    cargarBienesInformatica()
+      .then(setBienes)
+      .catch((e) => setError(e instanceof Error ? e.message : "No se pudo cargar el inventario."))
+      .finally(() => setCargando(false));
+  }, []);
 
   const resumen = useMemo(() => {
     const conteo = new Map<EstadoInventario, number>();
@@ -512,17 +396,13 @@ export default function Inventario() {
                   Consulta, revisa y localiza los bienes físicos de la facultad desde un único panel visual.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
-                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5"><Building2 size={14} /> {hojaSeleccionada === "INFORMATICA" ? "Ciencias Informáticas" : hojaSeleccionada === "AGROPECUARIA" ? "Ciencias Agropecuarias" : hojaSeleccionada === "BIOLOGIA PESQUERA" ? "Biología Pesquera" : hojaSeleccionada}</span>
-                  {nombreArchivo ? <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5"><FileSpreadsheet size={14} className="shrink-0 text-emerald-600" /><span className="max-w-[230px] truncate">{nombreArchivo}</span></span> : <span className="rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5">Fuente pendiente de cargar</span>}
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5"><Building2 size={14} /> Ciencias Informáticas</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-1.5"><FileSpreadsheet size={14} className="shrink-0 text-emerald-600" /> Base de datos · Supabase</span>
                 </div>
               </div>
 
               <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto xl:flex-col">
-                <label className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#ff3547] px-5 py-3 text-sm font-bold text-white shadow-[0_8px_18px_rgba(255,53,71,.22)] transition hover:bg-[#e72d3e] focus-within:ring-4 focus-within:ring-rose-100">
-                  <Upload size={18} /> {libro ? "Cambiar archivo Excel" : "Cargar archivo Excel"}
-                  <input type="file" accept=".xlsx,.xls" className="sr-only" onChange={importarExcel} />
-                </label>
-                {libro && (
+                {bienes.length > 0 && (
                   <button type="button" onClick={() => exportarCSV(bienesFiltrados, hojaSeleccionada)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50">
                     <Download size={17} /> Exportar vista CSV
                   </button>
@@ -531,26 +411,6 @@ export default function Inventario() {
             </div>
             {error && <div role="alert" className="mt-5 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800"><CircleAlert size={18} className="mt-0.5 shrink-0" /><span>{error}</span></div>}
           </section>
-
-          {/* Selector de hoja */}
-          {libro && (
-            <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-sm font-extrabold text-slate-800">Área del inventario</h3>
-                <p className="mt-1 text-xs text-slate-500">Selecciona la hoja que deseas consultar.</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {nombresHojas.map((nombre) => {
-                  const activo = nombre === hojaSeleccionada;
-                  return (
-                    <button key={nombre} type="button" onClick={() => { setHojaSeleccionada(nombre); limpiarFiltros(); }} className={`rounded-xl px-3.5 py-2.5 text-xs font-bold transition sm:text-sm ${activo ? "bg-slate-900 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"}`}>
-                      {nombre === "INFORMATICA" ? "Informática" : nombre === "AGROPECUARIA" ? "Agropecuaria" : nombre === "BIOLOGIA PESQUERA" ? "Biología Pesquera" : nombre}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          )}
 
           {/* Indicadores principales */}
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -573,210 +433,226 @@ export default function Inventario() {
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-rose-500" style={{ width: `${resumen.totalRegistros ? Math.min(100, (resumen.sinCodigo / resumen.totalRegistros) * 100) : 0}%` }} /></div>
             </article>
             <article className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-5">
-              <div className="flex items-start justify-between gap-3"><IconoKPI tone="#d97706"><CircleAlert size={21} /></IconoKPI><span className="rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800">Atención</span></div>
-              <p className="mt-4 text-sm font-semibold text-slate-500">Registros por revisar</p>
-              <p className="mt-1 text-3xl font-black tracking-tight text-slate-900">{numeroEC(resumen.requierenAtencion)}</p>
-              <p className="mt-2 text-xs text-slate-400">Sin código, por verificar o de baja</p>
+              <div className="flex items-start justify-between gap-3"><IconoKPI tone="#16a34a"><ClipboardList size={21} /></IconoKPI><span className="rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">Validados</span></div>
+              <p className="mt-4 text-sm font-semibold text-slate-500">Con código oficial</p>
+              <p className="mt-1 text-3xl font-black tracking-tight text-slate-900">{porcentajeConCodigo}%</p>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${porcentajeConCodigo}%` }} /></div>
             </article>
           </section>
 
-          {/* Gráficos */}
-          {libro && bienes.length > 0 && (
-            <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_1fr]">
-              <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
-                <div className="flex items-start justify-between gap-3">
-                  <div><h3 className="font-extrabold text-slate-900">Estado documental</h3><p className="mt-1 text-xs text-slate-500">Clasificación estimada a partir del código y las observaciones del Excel.</p></div>
-                  <div className="rounded-xl bg-slate-50 p-2 text-slate-500"><ChartNoAxesCombined size={19} /></div>
+          {/* Sección de gráficos y analíticas */}
+          {bienes.length > 0 && (
+            <section className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+              <div className="flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">Estado de los bienes</h3>
+                  <p className="mt-1 text-xs text-slate-500">Clasificación según observaciones y códigos.</p>
                 </div>
-                <div className="mt-5 flex flex-col items-center gap-5 sm:flex-row sm:items-center">
+                <div className="my-5 flex flex-col items-center justify-center gap-6 sm:flex-row">
                   <Donut datos={resumen.estados} total={resumen.totalRegistros} />
-                  <div className="grid w-full grid-cols-1 gap-2 sm:flex-1">
-                    {resumen.estados.map((dato) => (
-                      <div key={dato.nombre} className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-slate-50">
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: dato.color }} />
-                        <span className="min-w-0 flex-1 text-xs font-semibold text-slate-600">{dato.nombre}</span>
-                        <span className="text-sm font-extrabold tabular-nums text-slate-900">{numeroEC(dato.cantidad)}</span>
-                        <span className="w-10 text-right text-[10px] text-slate-400">{resumen.totalRegistros ? Math.round((dato.cantidad / resumen.totalRegistros) * 100) : 0}%</span>
+                  <div className="flex flex-col gap-2 text-xs">
+                    {resumen.estados.map((estado) => (
+                      <div key={estado.nombre} className="flex items-center gap-2">
+                        <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: estado.color }} />
+                        <span className="font-semibold text-slate-700">{estado.nombre}</span>
+                        <span className="ml-auto font-bold tabular-nums text-slate-900">{numeroEC(estado.cantidad)}</span>
                       </div>
                     ))}
                   </div>
                 </div>
-              </article>
+              </div>
 
-              <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
-                <div className="flex items-start justify-between gap-3">
-                  <div><h3 className="font-extrabold text-slate-900">Responsables con más registros</h3><p className="mt-1 text-xs text-slate-500">Top 5 por cantidad de filas asociadas en la hoja activa.</p></div>
-                  <div className="rounded-xl bg-slate-50 p-2 text-slate-500"><Users size={19} /></div>
+              <div className="flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6 lg:col-span-2">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">Responsables con mayor asignación</h3>
+                  <p className="mt-1 text-xs text-slate-500">Custodios o custodios anteriores con más registros a su cargo.</p>
                 </div>
-                {resumen.responsablesTop.length ? (
-                  <div className="mt-6 space-y-5">
-                    {resumen.responsablesTop.map((responsableDato, indice) => (
-                      <div key={responsableDato.nombre}>
-                        <div className="mb-2 flex items-center justify-between gap-3"><span className="min-w-0 truncate text-xs font-bold text-slate-700" title={responsableDato.nombre}>{indice + 1}. {responsableDato.nombre}</span><span className="shrink-0 text-xs font-extrabold tabular-nums text-slate-800">{numeroEC(responsableDato.cantidad)}</span></div>
-                        <div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full transition-all" style={{ width: `${(responsableDato.cantidad / maxResponsables) * 100}%`, background: indice === 0 ? "#ff3547" : indice === 1 ? "#fb7185" : indice === 2 ? "#64748b" : indice === 3 ? "#94a3b8" : "#cbd5e1" }} /></div>
-                      </div>
-                    ))}
-                  </div>
-                ) : <div className="flex h-40 items-center justify-center text-sm text-slate-400">No se encontraron responsables en esta hoja.</div>}
-              </article>
+                <div className="my-5 flex flex-col gap-3.5">
+                  {resumen.responsablesTop.length === 0 ? (
+                    <p className="text-xs text-slate-400">No hay responsables registrados.</p>
+                  ) : (
+                    resumen.responsablesTop.map((resp, i) => {
+                      const porcentaje = Math.round((resp.cantidad / maxResponsables) * 100);
+                      return (
+                        <div key={resp.nombre} className="flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-slate-800">{i + 1}. {resp.nombre}</span>
+                            <span className="font-extrabold tabular-nums text-slate-900">{numeroEC(resp.cantidad)} bienes</span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                            <div className="h-full rounded-full bg-rose-500 transition-all" style={{ width: `${porcentaje}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
             </section>
           )}
 
-          {/* Tabla de bienes */}
-          <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-            <div className="border-b border-slate-100 p-5 sm:p-6">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                <div><div className="flex items-center gap-2"><h3 className="text-lg font-black tracking-tight text-slate-900">Listado de bienes</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">{numeroEC(bienesFiltrados.length)}</span></div><p className="mt-1 text-xs text-slate-500">Busca por descripción, código, serie, custodio o ubicación.</p></div>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <label className="relative block sm:min-w-[300px]">
-                    <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-9 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-rose-300 focus:bg-white focus:ring-4 focus:ring-rose-50" type="search" placeholder="Buscar bienes..." value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }} />
-                    {busqueda && <button type="button" aria-label="Limpiar búsqueda" onClick={() => { setBusqueda(""); setPagina(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700"><X size={15} /></button>}
-                  </label>
-                  <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 sm:min-w-[190px]">
-                    <Filter size={16} className="shrink-0 text-slate-400" />
-                    <select className="w-full bg-transparent py-2.5 text-sm font-semibold text-slate-600 outline-none" value={filtro} onChange={(e) => { setFiltro(e.target.value); setPagina(1); }} aria-label="Filtrar bienes">
-                      <option value="todos">Todos los estados</option><option value="sin-codigo">Sin código</option><option value="verificar">Por verificar</option><option value="baja">De baja</option>
-                    </select>
-                  </label>
-                  <div className="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1">
-                    <button type="button" onClick={() => setModoVista("tarjetas")} aria-pressed={modoVista === "tarjetas"} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition ${modoVista === "tarjetas" ? "bg-white text-rose-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800"}`}><Grid2X2 size={15} /> Tarjetas</button>
-                    <button type="button" onClick={() => setModoVista("tabla")} aria-pressed={modoVista === "tabla"} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition ${modoVista === "tabla" ? "bg-white text-rose-700 shadow-sm ring-1 ring-slate-200" : "text-slate-500 hover:text-slate-800"}`}><List size={15} /> Tabla</button>
-                  </div>
-                </div>
+          {/* Listado y Buscador */}
+          <section className="flex flex-col gap-4 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative flex-1">
+                <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={busqueda}
+                  onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }}
+                  placeholder="Buscar por detalle, marca, serie, código, custodio o ubicación..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-10 pr-4 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-100"
+                />
               </div>
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { value: "todos", label: "Todos", cantidad: bienes.length },
-                    { value: "sin-codigo", label: "Sin código", cantidad: resumen.sinCodigo },
-                    { value: "verificar", label: "Por verificar", cantidad: resumen.porVerificar },
-                    { value: "baja", label: "De baja", cantidad: resumen.deBaja },
-                  ].map((pestana) => (
-                    <button type="button" key={pestana.value} onClick={() => { setFiltro(pestana.value); setPagina(1); }} className={`rounded-full px-3 py-2 text-xs font-bold transition ${filtro === pestana.value ? "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"}`}>
-                      {pestana.label} <span className="ml-1 opacity-70">{numeroEC(pestana.cantidad)}</span>
-                    </button>
-                  ))}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setFiltro("todos"); setPagina(1); }}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-bold transition ${filtro === "todos" ? "bg-slate-900 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"}`}
+                >
+                  Todos ({resumen.totalRegistros})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setFiltro("sin-codigo"); setPagina(1); }}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-bold transition ${filtro === "sin-codigo" ? "bg-rose-600 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"}`}
+                >
+                  Sin código ({resumen.sinCodigo})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setFiltro("verificar"); setPagina(1); }}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-bold transition ${filtro === "verificar" ? "bg-amber-600 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"}`}
+                >
+                  Por verificar ({resumen.porVerificar})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setFiltro("baja"); setPagina(1); }}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-bold transition ${filtro === "baja" ? "bg-slate-700 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"}`}
+                >
+                  De baja ({resumen.deBaja})
+                </button>
+
+                <div className="ml-auto flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setModoVista("tarjetas")}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${modoVista === "tarjetas" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+                  >
+                    Tarjetas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModoVista("tabla")}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${modoVista === "tabla" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+                  >
+                    Tabla
+                  </button>
                 </div>
-                {(busqueda || filtro !== "todos") && <button type="button" onClick={limpiarFiltros} className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-rose-600"><RefreshCw size={13} /> Limpiar filtros</button>}
               </div>
             </div>
 
-            {!libro ? (
-              <div className="flex flex-col items-center px-5 py-14 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 text-rose-600"><FileSpreadsheet size={30} /></div>
-                <h4 className="font-extrabold text-slate-900">Tu inventario está listo para cargar</h4>
-                <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">Selecciona el Excel institucional para ver los indicadores, gráficos y registros de las hojas disponibles.</p>
-                <label className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#ff3547] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#e72d3e]"><Upload size={17} /> Seleccionar Excel<input type="file" accept=".xlsx,.xls" className="sr-only" onChange={importarExcel} /></label>
-              </div>
+            {/* Renderizado de bienes o estado de carga */}
+            {cargando ? (
+              <div className="px-5 py-14 text-center text-sm text-slate-500">Cargando inventario…</div>
             ) : bienes.length === 0 ? (
-              <div className="flex flex-col items-center px-5 py-12 text-center"><CircleAlert size={32} className="text-amber-500" /><h4 className="mt-3 font-bold text-slate-800">No se detectaron registros en esta hoja</h4><p className="mt-1 text-sm text-slate-500">Comprueba que la hoja tenga encabezados de ITEM, CANT y DETALLE/DESCRIPCIÓN.</p></div>
+              <div className="px-5 py-14 text-center text-sm text-slate-500">No se encontraron registros en la base de datos.</div>
             ) : bienesFiltrados.length === 0 ? (
-              <div className="flex flex-col items-center px-5 py-12 text-center"><Search size={30} className="text-slate-300" /><h4 className="mt-3 font-bold text-slate-800">No hay resultados</h4><p className="mt-1 text-sm text-slate-500">Prueba otra búsqueda o limpia los filtros seleccionados.</p><button type="button" onClick={limpiarFiltros} className="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">Restablecer vista</button></div>
+              <div className="px-5 py-14 text-center text-sm text-slate-500">Ningún bien coincide con los filtros o término de búsqueda.</div>
+            ) : modoVista === "tarjetas" ? (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {bienesPagina.map((bien) => {
+                  const expandido = bienExpandido === bien.clave;
+                  const estado = estadoBien(bien);
+                  return (
+                    <div key={bien.clave} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow">
+                      <VisualBien bien={bien} />
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs">
+                        <div className="flex items-center gap-2">
+                          <EtiquetaEstado estado={estado} />
+                          <span className="font-bold text-slate-700">Código: {bien.codigo || "Sin código"}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setBienExpandido(expandido ? null : bien.clave)}
+                          className="font-bold text-rose-600 hover:text-rose-700"
+                        >
+                          {expandido ? "Ocultar detalle" : "Ver detalle completo"}
+                        </button>
+                      </div>
+                      {expandido && (
+                        <div className="mt-3 flex flex-col gap-1.5 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 border border-slate-100">
+                          <p><strong className="text-slate-800">Detalle:</strong> {bien.detalle || "—"}</p>
+                          <p><strong className="text-slate-800">Marca:</strong> {bien.marca || "—"} | <strong className="text-slate-800">Serie:</strong> {bien.serie || "—"}</p>
+                          <p><strong className="text-slate-800">Custodio:</strong> {responsable(bien)}</p>
+                          <p><strong className="text-slate-800">Ubicación:</strong> {bien.ubicacion || "—"}</p>
+                          {bien.observacion && <p><strong className="text-slate-800">Observación 1:</strong> {bien.observacion}</p>}
+                          {bien.observacion2 && <p><strong className="text-slate-800">Observación 2:</strong> {bien.observacion2}</p>}
+                          {bien.grupo && <p><strong className="text-slate-800">Grupo / Área:</strong> {bien.grupo}</p>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
-              <>
-                {modoVista === "tarjetas" ? (
-                  <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 sm:p-5">
-                    {bienesPagina.map((bien) => {
-                      const estado = estadoBien(bien);
-                      const expandido = bienExpandido === bien.clave;
-                      return (
-                        <article key={bien.clave} className="group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-rose-200 hover:shadow-[0_16px_35px_rgba(15,23,42,.09)] sm:p-4">
-                          <VisualBien bien={bien} />
-                          <div className="flex flex-1 flex-col px-1 pb-1 pt-4">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[10px] font-extrabold uppercase tracking-[.12em] text-slate-400">Descripción del bien</p>
-                                <h4 className="mt-1.5 text-[15px] font-extrabold leading-5 text-slate-900" title={bien.detalle} style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{bien.detalle || "Bien sin descripción"}</h4>
-                              </div>
-                              <EtiquetaEstado estado={estado} />
-                            </div>
+              <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                <table className="w-full text-left text-xs text-slate-700">
+                  <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-3">Ítem</th>
+                      <th className="px-4 py-3">Cant.</th>
+                      <th className="px-4 py-3">Detalle</th>
+                      <th className="px-4 py-3">Marca / Serie</th>
+                      <th className="px-4 py-3">Código</th>
+                      <th className="px-4 py-3">Custodio</th>
+                      <th className="px-4 py-3">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {bienesPagina.map((bien) => (
+                      <tr key={bien.clave} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 font-bold text-slate-900">{bien.item}</td>
+                        <td className="px-4 py-3 tabular-nums font-semibold">{bien.cantidad}</td>
+                        <td className="px-4 py-3 max-w-xs truncate" title={bien.detalle}>{bien.detalle}</td>
+                        <td className="px-4 py-3">{bien.marca} {bien.serie ? `(${bien.serie})` : ""}</td>
+                        <td className="px-4 py-3 font-mono text-[11px]">{bien.codigo || "—"}</td>
+                        <td className="px-4 py-3 max-w-[180px] truncate" title={responsable(bien)}>{responsable(bien)}</td>
+                        <td className="px-4 py-3"><EtiquetaEstado estado={estadoBien(bien)} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-                            <div className="mt-3 flex flex-wrap gap-1.5">
-                              {bien.marca && <span className="inline-flex max-w-full items-center gap-1 rounded-lg bg-slate-50 px-2 py-1.5 text-[11px] font-semibold text-slate-600"><Tag size={12} className="shrink-0 text-slate-400" /><span className="truncate">{bien.marca}</span></span>}
-                              {bien.codigo ? <span className="inline-flex max-w-full items-center gap-1 rounded-lg bg-slate-50 px-2 py-1.5 font-mono text-[10px] font-bold text-slate-600"><Barcode size={12} className="shrink-0 text-slate-400" /><span className="truncate">{bien.codigo}</span></span> : <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1.5 text-[10px] font-bold text-rose-700"><CircleAlert size={12} /> Sin código</span>}
-                            </div>
-
-                            <div className="mt-4 grid grid-cols-2 gap-2">
-                              <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-2.5">
-                                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Serie</p>
-                                <p className="mt-1 truncate text-xs font-bold text-slate-700" title={bien.serie || "No registrada"}>{bien.serie || "No registrada"}</p>
-                              </div>
-                              <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-2.5">
-                                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Responsable</p>
-                                <p className="mt-1 truncate text-xs font-bold text-slate-700" title={responsable(bien)}>{responsable(bien)}</p>
-                              </div>
-                            </div>
-
-                            <div className="mt-3 flex items-start gap-2 rounded-xl px-1 py-1 text-xs text-slate-500">
-                              <MapPin size={15} className="mt-0.5 shrink-0 text-rose-500" />
-                              <div className="min-w-0"><p className="font-bold text-slate-700">{bien.ubicacion || bien.grupo || "Ubicación no registrada"}</p>{bien.grupo && bien.ubicacion && <p className="mt-0.5 truncate text-[10px] text-slate-400" title={bien.grupo}>{bien.grupo}</p>}</div>
-                            </div>
-
-                            {expandido && (
-                              <div className="mt-3 space-y-2 rounded-xl border border-rose-100 bg-rose-50/50 p-3">
-                                <p className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700">Ficha completa</p>
-                                <div><p className="text-[10px] font-bold uppercase text-slate-400">Descripción completa</p><p className="mt-0.5 whitespace-pre-wrap text-xs leading-5 text-slate-700">{bien.detalle || "Sin descripción registrada"}</p></div>
-                                {bien.custodioAnterior && <div><p className="text-[10px] font-bold uppercase text-slate-400">Custodio anterior</p><p className="mt-0.5 text-xs leading-5 text-slate-700">{bien.custodioAnterior}</p></div>}
-                                {(bien.observacion || bien.observacion2) ? <div><p className="text-[10px] font-bold uppercase text-slate-400">Observaciones</p><p className="mt-0.5 whitespace-pre-wrap text-xs leading-5 text-slate-700">{[bien.observacion, bien.observacion2].filter(Boolean).join(" · ")}</p></div> : <p className="text-xs text-slate-500">Sin observaciones registradas.</p>}
-                                <div><p className="text-[10px] font-bold uppercase text-slate-400">Área / sección</p><p className="mt-0.5 text-xs leading-5 text-slate-700">{bien.grupo || "No identificada"}</p></div>
-                              </div>
-                            )}
-
-                            <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 pt-3 mt-4">
-                              <span className="text-[10px] font-semibold text-slate-400">Registro #{bien.item}</span>
-                              <button type="button" onClick={() => setBienExpandido(expandido ? null : bien.clave)} aria-expanded={expandido} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-extrabold text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-200">
-                                <Eye size={14} /> {expandido ? "Ocultar ficha" : "Ver ficha"}<ChevronDown size={14} className={`transition-transform ${expandido ? "rotate-180" : ""}`} />
-                              </button>
-                            </div>
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1050px] border-collapse text-left text-sm">
-                      <thead className="bg-slate-50 text-[10px] uppercase tracking-[.08em] text-slate-500">
-                        <tr>
-                          <th className="px-5 py-3.5 font-extrabold">Item</th><th className="px-4 py-3.5 font-extrabold">Descripción del bien</th><th className="px-4 py-3.5 font-extrabold">Código / serie</th><th className="px-4 py-3.5 font-extrabold">Custodio / responsable</th><th className="px-4 py-3.5 font-extrabold">Ubicación / área</th><th className="px-4 py-3.5 font-extrabold">Estado</th><th className="px-5 py-3.5 text-right font-extrabold">Cant.</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {bienesPagina.map((bien) => {
-                          const estado = estadoBien(bien);
-                          return (
-                            <tr key={bien.clave} className="group transition hover:bg-rose-50/40">
-                              <td className="whitespace-nowrap px-5 py-4 align-top"><span className="inline-flex min-w-9 items-center justify-center rounded-lg bg-slate-100 px-2 py-1.5 text-xs font-extrabold text-slate-600">{bien.item}</span></td>
-                              <td className="max-w-[330px] px-4 py-4 align-top"><p className="font-bold leading-5 text-slate-800">{bien.detalle || "Sin descripción"}</p><p className="mt-1.5 text-xs text-slate-400">{bien.marca ? `Marca: ${bien.marca}` : "Marca no registrada"}{bien.serie ? ` · Serie: ${bien.serie}` : ""}</p></td>
-                              <td className="px-4 py-4 align-top"><p className="font-mono text-xs font-bold text-slate-700">{bien.codigo || "Sin código"}</p><p className="mt-1 text-[11px] text-slate-400">{bien.serie ? `Serie: ${bien.serie}` : "Sin serie"}</p></td>
-                              <td className="max-w-[230px] px-4 py-4 align-top"><div className="flex items-start gap-2"><div className="mt-0.5 rounded-lg bg-slate-100 p-1.5 text-slate-500"><Users size={13} /></div><div><p className="text-xs font-bold leading-5 text-slate-700">{responsable(bien)}</p>{bien.custodio && bien.custodioAnterior && bien.custodio !== bien.custodioAnterior && <p className="mt-1 text-[10px] text-slate-400">Anterior: {bien.custodioAnterior}</p>}</div></div></td>
-                              <td className="max-w-[220px] px-4 py-4 align-top"><div className="flex items-start gap-2 text-xs text-slate-600"><MapPin size={14} className="mt-0.5 shrink-0 text-slate-400" /><span className="leading-5">{bien.ubicacion || bien.grupo || "Sin ubicación registrada"}</span></div>{bien.grupo && bien.ubicacion && <p className="mt-1 pl-5 text-[10px] text-slate-400">{bien.grupo}</p>}</td>
-                              <td className="px-4 py-4 align-top"><EtiquetaEstado estado={estado} />{(bien.observacion || bien.observacion2) && <p className="mt-1.5 max-w-[180px] text-[10px] leading-4 text-slate-400">{[bien.observacion, bien.observacion2].filter(Boolean).join(" · ")}</p>}</td>
-                              <td className="px-5 py-4 text-right align-top"><span className="inline-flex min-w-9 justify-center rounded-lg bg-slate-50 px-2 py-1.5 text-sm font-black tabular-nums text-slate-800">{numeroEC(bien.cantidad)}</span></td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs text-slate-500">Mostrando <strong className="text-slate-800">{(paginaSegura - 1) * TAMANO_PAGINA + 1}–{Math.min(paginaSegura * TAMANO_PAGINA, bienesFiltrados.length)}</strong> de <strong className="text-slate-800">{numeroEC(bienesFiltrados.length)}</strong> registros encontrados</p>
-                  <div className="flex items-center gap-2">
-                    <button type="button" disabled={paginaSegura <= 1} onClick={() => setPagina((p) => Math.max(1, p - 1))} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft size={15} /> Anterior</button>
-                    <span className="min-w-[94px] text-center text-xs font-bold text-slate-500">Página {paginaSegura} de {totalPaginas}</span>
-                    <button type="button" disabled={paginaSegura >= totalPaginas} onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Siguiente <ChevronRight size={15} /></button>
-                  </div>
+            {/* Paginación */}
+            {totalPaginas > 1 && (
+              <div className="flex items-center justify-between border-t border-slate-100 pt-4 text-xs">
+                <span className="text-slate-500">Mostrando página <strong className="text-slate-800">{paginaSegura}</strong> de <strong className="text-slate-800">{totalPaginas}</strong></span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                    disabled={paginaSegura === 1}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                    disabled={paginaSegura === totalPaginas}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 disabled:opacity-40"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
                 </div>
-              </>
+              </div>
             )}
           </section>
-
-          <footer className="flex flex-col gap-1 border-t border-slate-200 px-1 pt-4 text-[11px] leading-5 text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-            <span>Inventario institucional · Facultad de Ciencias Informáticas</span>
-            <span>Los gráficos son cálculos a partir de la hoja seleccionada; el Excel original no se modifica.</span>
-          </footer>
         </div>
       </div>
     </Pantalla>
