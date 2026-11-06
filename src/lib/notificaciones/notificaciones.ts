@@ -69,24 +69,36 @@ async function cargar() {
     ]);
     poner({ rol: aRol(perfil?.rol), items: ((data ?? []) as Fila[]).map(aNotif) });
 
-    if (canal) supabase.removeChannel(canal);
+    // CORRECCIÓN: Si ya existe un canal previo, lo removemos correctamente
+    if (canal) {
+      await supabase.removeChannel(canal);
+      canal = null;
+    }
+
     uidActual = user.id;
-    canal = supabase
+    
+    // Creamos el canal y configuramos los listeners ANTES de llamar a .subscribe()
+    const nuevoCanal = supabase
       .channel(`notificaciones-${user.id}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notificaciones", filter: `usuario_id=eq.${user.id}` },
         (p) => poner({ items: [aNotif(p.new as Fila), ...estado.items].slice(0, MAX) }),
-      )
-      .subscribe();
+      );
+
+    canal = nuevoCanal;
+    canal.subscribe();
+    
   } finally {
     cargando = false;
   }
 }
 
-function limpiar() {
-  if (canal) supabase.removeChannel(canal);
-  canal = null;
+async function limpiar() {
+  if (canal) {
+    await supabase.removeChannel(canal);
+    canal = null;
+  }
   uidActual = "";
   poner({ ...INICIAL });
 }
