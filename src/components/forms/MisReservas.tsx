@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Monitor, Eye, TriangleAlert, Clock, Check, Play, X, CalendarX } from "lucide-react";
 import {
   cargarMisReservas, cancelarReserva, mensajeError,
@@ -41,8 +42,11 @@ const FILTROS: { id: Filtro; t: string }[] = [
 ];
 
 function Tarjeta({
-  r, onCancelar, onDetalle,
-}: { r: ReservaUI; onCancelar: (id: string) => void; onDetalle: (r: ReservaUI) => void }) {
+  r, rutaFalla, onCancelar, onDetalle,
+}: {
+  r: ReservaUI; rutaFalla: string;
+  onCancelar: (id: string) => void; onDetalle: (r: ReservaUI) => void;
+}) {
   const pasos = PASOS[r.estado];
   const etiquetas = ["Solicitud", "Revisión", "Aprobación", "Uso"];
   const meta = [r.fecha, r.hora, `${r.estudiantes} estudiantes`, `Solicitante\n${r.solicitante}`];
@@ -52,7 +56,9 @@ function Tarjeta({
         <span className="dd-card__avatar"><Monitor size={20} /></span>
         <div className="dd-card__info">
           <h3 className="dd-card__name">{r.lab}</h3>
-          <p className="dd-card__place">Facultad de Ciencias de la Vida y Tecnología</p>
+          <p className="dd-card__place">
+            {r.tipo === "especial" ? "Solicitud especial" : "Facultad de Ciencias de la Vida y Tecnología"}
+          </p>
         </div>
         <span className="dd-badge">{BADGE[r.estado].i}{BADGE[r.estado].t}</span>
       </div>
@@ -65,6 +71,9 @@ function Tarjeta({
           </div>
         ))}
       </div>
+      {r.tipo === "especial" && r.motivoEspecial && (
+        <p className="tt-meta"><strong>Motivo:</strong> {r.motivoEspecial}</p>
+      )}
       {r.estado === "rechazado" && r.motivo && <p className="tt-meta">Motivo del rechazo: {r.motivo}</p>}
       <div className="dd-card__actions">
         <button type="button" className="dd-btn dd-btn--ghost" onClick={() => onDetalle(r)}>
@@ -76,7 +85,7 @@ function Tarjeta({
           </button>
         )}
         {r.estado === "en-curso" && (
-          <Link href="/docente/falla" className="dd-btn dd-btn--primary">
+          <Link href={rutaFalla} className="dd-btn dd-btn--primary">
             <TriangleAlert /> Reportar inconveniente
           </Link>
         )}
@@ -85,8 +94,11 @@ function Tarjeta({
   );
 }
 
-/* Filtros + lista de reservas del docente que inició sesión. */
+/* Filtros + lista de reservas de quien inició sesión (docente o estudiante). */
 export default function MisReservas() {
+  const pathname = usePathname();
+  const rutaFalla = pathname.startsWith("/estudiante") ? "/estudiante/falla" : "/docente/falla";
+
   const [items, setItems] = useState<ReservaUI[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
@@ -122,9 +134,11 @@ export default function MisReservas() {
       ["Horario", r.hora],
       ["Estudiantes", String(r.estudiantes)],
       ["Solicitante", r.solicitante],
+      ["Tipo", r.tipo === "especial" ? "Especial" : "Clase"],
       ["Estado", BADGE[r.estado].t],
     ];
-    if (r.estado === "rechazado" && r.motivo) filas.push(["Motivo", r.motivo]);
+    if (r.motivoEspecial) filas.push(["Motivo", r.motivoEspecial]);
+    if (r.estado === "rechazado" && r.motivo) filas.push(["Motivo del rechazo", r.motivo]);
     return filas;
   };
 
@@ -159,7 +173,7 @@ export default function MisReservas() {
       ) : (
         <div className="dd-list">
           {visibles.map((r) => (
-            <Tarjeta key={r.id} r={r} onCancelar={cancelar} onDetalle={setDetalle} />
+            <Tarjeta key={r.id} r={r} rutaFalla={rutaFalla} onCancelar={cancelar} onDetalle={setDetalle} />
           ))}
         </div>
       )}

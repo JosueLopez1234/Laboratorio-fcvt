@@ -2,28 +2,34 @@ import { supabase } from "@/lib/servicios/supabase";
 
 /* ---------- Tipos ---------- */
 export type EstadoUI = "pendiente" | "aprobado" | "en-curso" | "finalizado" | "rechazado" | "cancelado";
+export type TipoReserva = "clase" | "especial";
 
 export type ReservaUI = {
   id: string;
   lab: string;
-  fecha: string;       // "14 Oct 2026"
-  hora: string;        // "10:00 - 12:00"
+  fecha: string;
+  hora: string;
   estudiantes: number;
   solicitante: string;
   estado: EstadoUI;
   motivo?: string;
+  tipo: TipoReserva;            // NUEVO
+  motivoEspecial?: string;      // NUEVO
 };
 
 export type SolicitudTec = {
   id: string;
   docente: string;
   lab: string;
-  fecha: string;       // ISO "2026-10-14"
-  inicio: string;      // "08:00"
+  fecha: string;
+  inicio: string;
   fin: string;
   est: number;
   estado: "pendiente" | "aprobado" | "rechazado";
   motivo?: string;
+  tipo: TipoReserva;            // NUEVO
+  motivoEspecial?: string;      // NUEVO
+  rol: string;                  // NUEVO: docente | estudiante
 };
 
 type Fila = {
@@ -35,10 +41,13 @@ type Fila = {
   estudiantes: number;
   estado: "pendiente" | "aprobada" | "rechazada" | "cancelada" | "finalizada";
   motivo_rechazo: string | null;
-  perfiles: { nombre: string } | null;
+  tipo: TipoReserva;                                  // NUEVO
+  motivo_especial: string | null;                     // NUEVO
+  perfiles: { nombre: string; rol: string } | null;  // rol NUEVO
 };
 
-const COLUMNAS = "id, laboratorio_id, fecha, hora_inicio, hora_fin, estudiantes, estado, motivo_rechazo, perfiles(nombre)";
+const COLUMNAS =
+  "id, laboratorio_id, fecha, hora_inicio, hora_fin, estudiantes, estado, motivo_rechazo, tipo, motivo_especial, perfiles(nombre, rol)";
 
 /* ---------- Utilidades ---------- */
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -55,6 +64,8 @@ const aHoras = (t: string) => {
 export function mensajeError(err: unknown): string {
   const msg = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : "";
   if (msg.includes("clase en ese horario")) return "El laboratorio tiene clase en ese horario.";
+  if (msg.includes("ya está ocupado")) return "El laboratorio ya está ocupado en ese horario (reserva de un docente o clase).";
+  if (msg.includes("especial_requiere_motivo")) return "Explica el motivo de la solicitud (mínimo 10 caracteres).";
   if (msg.includes("reservas_sin_cruce")) return "Ya hay una reserva aprobada en ese laboratorio y horario.";
   if (msg.includes("row-level security")) return "Tu cuenta no tiene permiso para esta acción.";
   if (msg.includes("reservas_solo_laborables")) return "Solo se pueden reservar de lunes a viernes.";
@@ -67,12 +78,15 @@ async function uid() {
   return user.id;
 }
 
-/* ---------- Docente ---------- */
+/* ---------- Docente / Estudiante ---------- */
 export async function crearReserva(d: {
   lab: string; fecha: string; inicio: string; fin: string;
   carrera: string; periodo: string; asignatura: string; estudiantes: number; actividad: string;
   firmaUrl?: string;
+  tipo?: TipoReserva;          // NUEVO (por defecto "clase")
+  motivoEspecial?: string;     // NUEVO
 }) {
+  const tipo = d.tipo ?? "clase";
   const { error } = await supabase.from("reservas").insert({
     docente_id: await uid(),
     laboratorio_id: d.lab,
@@ -84,14 +98,16 @@ export async function crearReserva(d: {
     asignatura: d.asignatura.trim(),
     estudiantes: d.estudiantes,
     actividad: d.actividad.trim() || null,
-    firma_url: d.firmaUrl ?? null, 
+    firma_url: d.firmaUrl ?? null,
+    tipo,
+    motivo_especial: tipo === "especial" ? (d.motivoEspecial ?? "").trim() : null,
   });
   if (error) throw error;
 }
 
 /** Avisa antes de enviar si el horario choca con una clase fija. Devuelve el mensaje o null. */
 export async function choqueConClase(lab: string, fecha: string, inicio: string, fin: string) {
-  const dia = ((new Date(`${fecha}T00:00:00`).getDay() + 6) % 7) + 1; // 1 = lunes
+  const dia = ((new Date(`${fecha}T00:00:00`).getDay() + 6) % 7) + 1;
   if (dia > 5) return null;
   const { data, error } = await supabase
     .from("horarios")
@@ -134,6 +150,8 @@ export async function cargarMisReservas(): Promise<ReservaUI[]> {
       solicitante: f.perfiles?.nombre ?? "—",
       estado,
       motivo: f.motivo_rechazo ?? undefined,
+      tipo: f.tipo,
+      motivoEspecial: f.motivo_especial ?? undefined,
     };
   });
 }
@@ -164,6 +182,9 @@ export async function cargarSolicitudes(): Promise<SolicitudTec[]> {
     est: f.estudiantes,
     estado: f.estado === "aprobada" ? "aprobado" : f.estado === "rechazada" ? "rechazado" : "pendiente",
     motivo: f.motivo_rechazo ?? undefined,
+    tipo: f.tipo,
+    motivoEspecial: f.motivo_especial ?? undefined,
+    rol: f.perfiles?.rol ?? "docente",
   }));
 }
 
@@ -176,6 +197,7 @@ export async function responderReserva(id: string, estado: "aprobada" | "rechaza
   if (error) throw error;
   if (!data?.length) throw new Error("No se pudo actualizar la solicitud.");
 }
+
 /* ---------- Ocupación ---------- */
 export type OcupacionHoy = { lab: string; ini: number; fin: number; docente: string; asignatura: string };
 

@@ -24,8 +24,10 @@ const MENU: ItemMenu[] = [
    Las páginas del docente solo ponen su contenido como children. */
 /* Menú del estudiante */
 export const MENU_ESTUDIANTE: ItemMenu[] = [
-  { href: "/estudiante/acta",  t: "Acta de compromiso", i: ClipboardCheck },
-  { href: "/estudiante/falla", t: "Reportar falla",     i: Wrench },
+  { href: "/estudiante/acta", t: "Acta de compromiso", i: ClipboardCheck },
+  { href: "/estudiante/solicitar", t: "Solicitar laboratorio", i: CalendarCheck },
+  { href: "/estudiante/reservas", t: "Mis reservas", i: ClipboardList },
+  { href: "/estudiante/falla", t: "Reportar falla", i: Wrench },
 ];
 
 /* Menú del técnico (el "Panel" es el propio Dashboard, por eso no se repite) */

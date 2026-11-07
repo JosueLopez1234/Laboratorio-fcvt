@@ -34,6 +34,13 @@ const FILTROS: { id: Filtro; t: string }[] = [
   { id: "rechazado", t: "Rechazadas" },
 ];
 
+type Origen = "todos" | "docente" | "estudiante";
+const ORIGENES: { id: Origen; t: string }[] = [
+  { id: "todos", t: "Todos" },
+  { id: "docente", t: "Docentes" },
+  { id: "estudiante", t: "Estudiantes (especiales)" },
+];
+
 /* Dos solicitudes chocan si piden el mismo laboratorio, el mismo día y las horas se cruzan */
 const cruza = (a: SolicitudTec, b: SolicitudTec) =>
   a.id !== b.id && a.lab === b.lab && a.fecha === b.fecha &&
@@ -45,11 +52,12 @@ export default function Solicitudes() {
   const [error, setError] = useState("");
   const [tipo, setTipo] = useState<"laboratorio" | "material">("laboratorio");
   const [filtro, setFiltro] = useState<Filtro>("todas");
+  const [origen, setOrigen] = useState<Origen>("todos");
   const [busqueda, setBusqueda] = useState("");
   const [rechazando, setRechazando] = useState<string | null>(null);
   const [motivo, setMotivo] = useState("");
   const [ocupado, setOcupado] = useState<string | null>(null);
-  const [detalle, setDetalle] = useState<SolicitudTec | null>(null); // <- ahora DENTRO del componente
+  const [detalle, setDetalle] = useState<SolicitudTec | null>(null);
 
   useEffect(() => {
     cargarSolicitudes()
@@ -91,6 +99,7 @@ export default function Solicitudes() {
   const q = busqueda.trim().toLowerCase();
   const visibles = items
     .filter((i) => filtro === "todas" || i.estado === filtro)
+    .filter((i) => origen === "todos" || i.rol === origen)
     .filter((i) => !q || i.docente.toLowerCase().includes(q) || i.lab.includes(q));
 
   return (
@@ -126,12 +135,26 @@ export default function Solicitudes() {
           ))}
         </div>
 
+        <div className="dd-chips" role="tablist" aria-label="Quién solicita">
+          {ORIGENES.map((o) => (
+            <button
+              key={o.id}
+              role="tab"
+              aria-selected={origen === o.id}
+              className={`dd-chip ${origen === o.id ? "is-active" : ""}`}
+              onClick={() => setOrigen(o.id)}
+            >
+              {o.t}
+            </button>
+          ))}
+        </div>
+
         <div className="tt-search">
           <label htmlFor="busqueda" className="ss-label">Buscar</label>
           <input
             id="busqueda" className="input" value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Docente o número de laboratorio"
+            placeholder="Solicitante o número de laboratorio"
           />
         </div>
 
@@ -146,7 +169,7 @@ export default function Solicitudes() {
             <p className="dd-empty__text">
               {items.length > 0
                 ? "Ninguna solicitud coincide con el filtro o la búsqueda."
-                : "Cuando un docente reserve un laboratorio, aparecerá aquí."}
+                : "Cuando un docente o estudiante solicite un laboratorio, aparecerá aquí."}
             </p>
           </div>
         ) : (
@@ -155,7 +178,7 @@ export default function Solicitudes() {
               const pasos = PASOS[s.estado];
               const choques = items.filter((x) => cruza(s, x));
               const bloqueada = choques.some((x) => x.estado === "aprobado");
-              const meta = [fechaLarga(s.fecha), `${s.inicio} - ${s.fin}`, `${s.est} estudiantes`, `Solicitante\n${s.docente}`];
+              const meta = [fechaLarga(s.fecha), `${s.inicio} - ${s.fin}`, `${s.est} personas`, `Solicitante\n${s.docente}`];
               const abierto = rechazando === s.id;
               return (
                 <article key={s.id} className="dd-card" data-estado={s.estado}>
@@ -163,7 +186,9 @@ export default function Solicitudes() {
                     <span className="dd-card__avatar"><Monitor size={20} /></span>
                     <div className="dd-card__info">
                       <h3 className="dd-card__name">Laboratorio {s.lab}</h3>
-                      <p className="dd-card__place">Solicitado por {s.docente}</p>
+                      <p className="dd-card__place">
+                        {s.tipo === "especial" ? "Solicitud especial de " : "Solicitado por "}{s.docente}
+                      </p>
                     </div>
                     <span className="dd-badge">{BADGE[s.estado].i}{BADGE[s.estado].t}</span>
                   </div>
@@ -178,6 +203,10 @@ export default function Solicitudes() {
                     ))}
                   </div>
 
+                  {s.tipo === "especial" && s.motivoEspecial && (
+                    <p className="tt-meta"><strong>Motivo especial:</strong> {s.motivoEspecial}</p>
+                  )}
+
                   {s.estado === "rechazado" && s.motivo && (
                     <p className="tt-meta">Motivo del rechazo: {s.motivo}</p>
                   )}
@@ -187,11 +216,10 @@ export default function Solicitudes() {
                       <TriangleAlert size={14} />
                       {bloqueada
                         ? "Ya hay una solicitud aprobada en este horario. No se puede aprobar."
-                        : `Se cruza con la solicitud de ${choques.map((c) => c.docente).join(", ")}.`}
+                        : `Se cruza con la solicitud de ${choques.map((c) => `${c.docente} (${c.rol})`).join(", ")}.`}
                     </p>
                   )}
 
-                  {/* Esta fila ahora aparece SIEMPRE: "Ver detalles" en cualquier estado */}
                   <div className="dd-card__actions">
                     <button type="button" className="dd-btn dd-btn--ghost" onClick={() => setDetalle(s)}>
                       <Eye /> Ver detalles
@@ -246,17 +274,18 @@ export default function Solicitudes() {
       </section>
       )}
 
-      {/* Modal de detalles (faltaba) */}
       {detalle && (
         <DetalleModal
           titulo={`Laboratorio ${detalle.lab}`}
           onClose={() => setDetalle(null)}
           filas={[
-            ["Solicitante", detalle.docente],
+            ["Solicitante", `${detalle.docente} (${detalle.rol === "estudiante" ? "Estudiante" : "Docente"})`],
+            ["Tipo", detalle.tipo === "especial" ? "Especial (estudiante)" : "Clase (docente)"],
             ["Fecha", fechaLarga(detalle.fecha)],
             ["Horario", `${detalle.inicio} - ${detalle.fin}`],
-            ["Estudiantes", String(detalle.est)],
+            ["Personas", String(detalle.est)],
             ["Estado", BADGE[detalle.estado].t],
+            ...(detalle.motivoEspecial ? [["Motivo especial", detalle.motivoEspecial] as [string, string]] : []),
             ...(detalle.motivo ? [["Motivo del rechazo", detalle.motivo] as [string, string]] : []),
           ]}
         />

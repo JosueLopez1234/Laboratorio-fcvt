@@ -43,7 +43,12 @@ function Tarjeta({
         </div>
         <span className="dd-badge">{e.i}{e.t}</span>
       </div>
-      <p className="tt-meta">Solicitado por {s.docente} (Docente)</p>
+      <p className="tt-meta">
+      {s.tipo === "especial" ? "Solicitud especial de " : "Solicitado por "}{s.docente} ({s.rol === "estudiante" ? "Estudiante" : "Docente"})
+      </p>
+      {s.tipo === "especial" && s.motivoEspecial && (
+      <p className="tt-meta"><strong>Motivo:</strong> {s.motivoEspecial}</p>
+      )}
       {s.estado === "rechazado" && s.motivo && <p className="tt-meta">Motivo del rechazo: {s.motivo}</p>}
       <div className="dd-card__actions">
         <button type="button" className="dd-btn dd-btn--ghost" onClick={() => setAbierto(true)}>

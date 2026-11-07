@@ -5,6 +5,9 @@ import { Check, ArrowLeft, ArrowRight, Send, Plus, X } from "lucide-react";
 import ShellDocente, { MENU_ESTUDIANTE } from "@/components/docente/ShellDocente";
 import { Firma } from "@/components/layouts/ui";
 import { CARRERAS, PERIODOS } from "@/lib/types/datos";
+import { crearActa } from "@/lib/servicios/actas";
+import { mensajeError } from "@/lib/servicios/reservas";
+import { subirFirma } from "@/lib/types/firmas";
 
 const MAX_EST = 40;
 const PASOS = ["Datos", "Estudiantes", "Firma"];
@@ -55,17 +58,21 @@ function FilaResumen({ k, v }: { k: string; v: string }) {
 }
 
 export default function Acta() {
-  const sig = useRef(6); // próximo id de fila
+  const sig = useRef(6);
   const [paso, setPaso] = useState(0);
   const [datos, setDatos] = useState<Datos>({ carrera: CARRERAS[0] ?? "", fecha: hoyISO(), periodo: PERIODOS[0] ?? "" });
   const [filas, setFilas] = useState<Fila[]>(
     Array.from({ length: 5 }, (_, i) => ({ id: i + 1, cedula: "", nombre: "" })),
   );
   const [acepto, setAcepto] = useState(false);
+  const [firma, setFirma] = useState<string | null>(null);
+  const [errFirma, setErrFirma] = useState("");
   const [errDatos, setErrDatos] = useState<ErroresDatos>({});
   const [errFilas, setErrFilas] = useState<Record<number, string>>({});
   const [errGeneral, setErrGeneral] = useState("");
   const [errAcepto, setErrAcepto] = useState("");
+  const [errorEnvio, setErrorEnvio] = useState("");
+  const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
 
   const llenas = filas.filter((f) => f.cedula.trim() || f.nombre.trim());
@@ -115,6 +122,11 @@ export default function Acta() {
     return Object.keys(e).length === 0 && !general;
   };
 
+  const alCambiarFirma = (f: string | null) => {
+    setFirma(f);
+    if (f) setErrFirma("");
+  };
+
   const ir = (n: number) => {
     setPaso(n);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -125,17 +137,38 @@ export default function Acta() {
     else if (paso === 1 && validarFilas()) ir(2);
   };
 
-  const enviar = (e: React.FormEvent) => {
+  const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (paso !== 2) return;
+    if (paso !== 2 || enviando) return;
+    let ok = true;
     if (!acepto) {
       setErrAcepto("Debes aceptar el compromiso para firmar el acta.");
-      return;
+      ok = false;
     }
-    // TODO: aquí va lo que hacía <Formulario> al firmar (API, localStorage, etc.).
-    // Guarda solo las filas completas: `llenas`.
-    setEnviado(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (!firma) {
+      setErrFirma("Firma en el recuadro antes de enviar.");
+      ok = false;
+    }
+    if (!ok) return;
+
+    setEnviando(true);
+    setErrorEnvio("");
+    try {
+      const firmaUrl = firma ? await subirFirma(firma) : undefined;
+      await crearActa({
+        carrera: datos.carrera,
+        periodo: datos.periodo,
+        fecha: datos.fecha,
+        estudiantes: llenas.map((f) => ({ cedula: f.cedula, nombre: f.nombre.trim() })),
+        firmaUrl,
+      });
+      setEnviado(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setErrorEnvio(mensajeError(err));
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const nueva = () => {
@@ -143,6 +176,9 @@ export default function Acta() {
     setDatos({ carrera: CARRERAS[0] ?? "", fecha: hoyISO(), periodo: PERIODOS[0] ?? "" });
     setFilas(Array.from({ length: 5 }, (_, i) => ({ id: i + 1, cedula: "", nombre: "" })));
     setAcepto(false);
+    setFirma(null);
+    setErrFirma("");
+    setErrorEnvio("");
     setErrDatos({}); setErrFilas({}); setErrGeneral(""); setErrAcepto("");
     setPaso(0);
     setEnviado(false);
@@ -293,8 +329,11 @@ export default function Acta() {
               </dl>
             </section>
 
-            <Firma label="Firma de quien presenta el acta" />
+            <Firma label="Firma de quien presenta el acta" onChange={alCambiarFirma} />
+            {errFirma && <p className="ss-error" role="alert">{errFirma}</p>}
           </fieldset>
+
+          {errorEnvio && <p className="ss-error" role="alert">{errorEnvio}</p>}
 
           <div className="ss-actions">
             <Link href="/" className="ss-btn ss-btn--danger">Cancelar</Link>
@@ -309,8 +348,8 @@ export default function Acta() {
                   Siguiente <ArrowRight size={16} />
                 </button>
               ) : (
-                <button type="submit" className="ss-btn ss-btn--primary">
-                  <Send size={16} /> Firmar acta
+                <button type="submit" className="ss-btn ss-btn--primary" disabled={enviando}>
+                  <Send size={16} /> {enviando ? "Guardando…" : "Firmar acta"}
                 </button>
               )}
             </div>
