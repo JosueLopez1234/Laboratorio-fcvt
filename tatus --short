@@ -1,0 +1,10 @@
+package-lock.json
+package.json
+src/app/docente/solicitar/page.tsx
+src/app/globals.css
+src/app/tecnico/horarios/page.tsx
+src/app/tecnico/inventario/page.tsx
+src/app/tecnico/solicitudes/page.tsx
+src/components/DashboardTecnico.tsx
+src/lib/reservas.ts
+src/lib/supabase.ts

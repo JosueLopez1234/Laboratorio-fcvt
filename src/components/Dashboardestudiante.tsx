@@ -1,185 +1,413 @@
 "use client";
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ClipboardCheck, Wrench, Eye, Download, Clock, Check, Play } from "lucide-react";
-import ShellDocente, { MENU_ESTUDIANTE } from "@/components/docente/ShellDocente";
+import {
+  CalendarCheck,
+  ClipboardList,
+  ClipboardCheck,
+  Wrench,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Monitor,
+  ArrowRight,
+  RefreshCw,
+} from "lucide-react";
+
+import ShellDocente, {
+  MENU_ESTUDIANTE,
+} from "@/components/docente/ShellDocente";
+
 import BannerCarrusel from "@/components/docente/BannerCarrusel";
+import { usePerfil } from "@/lib/perfil";
 
-type Paso = "done" | "current" | "todo";
-type EstadoFalla = "pendiente" | "en-curso" | "finalizado";
-
-type Acta = {
-  id: number; tipo: "acta";
-  carrera: string; periodo: string; fecha: string; estudiantes: number;
-};
-type Falla = {
-  id: number; tipo: "falla";
-  equipo: string; aula: string; fecha: string; falla: string; estado: EstadoFalla;
-};
-type Item = Acta | Falla;
-
-/* TODO: reemplazar por el usuario logueado cuando tengas la sesión */
-const USUARIO = "Juan Pérez";
-
-/* ---------- BASE DE DATOS FALSA (solo para ver los estados) ----------
-   Pon USAR_MOCK en false para ver el mensaje "Aún no hay actividad".
-   Cuando tengas la API real, reemplaza ITEMS por tu fetch. */
-const USAR_MOCK = true;
-
-const MOCK: Item[] = [
-  { id: 1, tipo: "falla", equipo: "PC-12", aula: "Laboratorio 203", fecha: "14 Oct 2026", falla: "No enciende", estado: "pendiente" },
-  { id: 2, tipo: "falla", equipo: "PC-07", aula: "Laboratorio 105", fecha: "13 Oct 2026", falla: "Sin acceso a internet", estado: "en-curso" },
-  { id: 3, tipo: "acta", carrera: "Ingeniería en Software", periodo: "2026-1", fecha: "12 Oct 2026", estudiantes: 12 },
-  { id: 4, tipo: "falla", equipo: "PC-03", aula: "Laboratorio 301", fecha: "09 Oct 2026", falla: "Mouse/teclado no responde", estado: "finalizado" },
-];
-
-const ITEMS: Item[] = USAR_MOCK ? MOCK : [];
-
-const PASOS_FALLA: Record<EstadoFalla, Paso[]> = {
-  pendiente:  ["done", "current", "todo", "todo"],
-  "en-curso": ["done", "done", "current", "todo"],
-  finalizado: ["done", "done", "done", "done"],
-};
-const ETIQUETAS_FALLA = ["Reporte", "Revisión", "Atención", "Resuelto"];
-
-const BADGE_FALLA: Record<EstadoFalla, { t: string; i: React.ReactNode }> = {
-  pendiente:  { t: "Pendiente",   i: <Clock size={12} /> },
-  "en-curso": { t: "En atención", i: <Play size={12} /> },
-  finalizado: { t: "Resuelta",    i: <Check size={12} /> },
-};
-
-type Filtro = "todas" | "acta" | "falla";
-const FILTROS: { id: Filtro; t: string }[] = [
-  { id: "todas", t: "Todas" },
-  { id: "acta", t: "Actas" },
-  { id: "falla", t: "Reportes" },
-];
+import {
+  cargarMisReservas,
+  mensajeError,
+  type ReservaUI,
+  type EstadoUI,
+} from "@/lib/reservas";
 
 const BANNERS = [
-  { src: "/fcvt.jpg", text: "Facultad de Ciencias de la Vida y Tecnología" },
-  { src: "/fctv2.jpg", text: "Carrera de software" },
-  { src: "/fcvt3.jpg", text: "Nuevas Oportunidades cada día" },
+  {
+    src: "/fcvt.jpg",
+    text: "Facultad de Ciencias de la Vida y Tecnología",
+  },
+  {
+    src: "/fctv2.jpg",
+    text: "Carrera de software",
+  },
+  {
+    src: "/fcvt3.jpg",
+    text: "Nuevas oportunidades cada día",
+  },
 ];
 
-function TarjetaActa({ acta }: { acta: Acta }) {
-  return (
-    <article className="dd-card" data-estado="aprobado">
-      <div className="dd-card__top">
-        <span className="dd-card__avatar"><ClipboardCheck size={20} /></span>
-        <div className="dd-card__info">
-          <h3 className="dd-card__name">Acta de compromiso</h3>
-          <p className="dd-card__place">{acta.carrera}, período {acta.periodo}</p>
-        </div>
-        <span className="dd-badge"><Check size={12} />Firmada</span>
-      </div>
-      <p className="dd-card__place" style={{ marginTop: 10 }}>
-        {acta.fecha}, {acta.estudiantes} {acta.estudiantes === 1 ? "estudiante" : "estudiantes"}
-      </p>
-      <div className="dd-card__actions">
-        <button className="dd-btn dd-btn--ghost"><Eye /> Ver detalles</button>
-        <button className="dd-btn dd-btn--primary"><Download /> Descargar acta</button>
-      </div>
-    </article>
-  );
-}
-
-function TarjetaFalla({ falla }: { falla: Falla }) {
-  const pasos = PASOS_FALLA[falla.estado];
-  const meta = [falla.fecha, falla.aula, falla.falla, `Reportado por\n${USUARIO}`];
-  return (
-    <article className="dd-card" data-estado={falla.estado}>
-      <div className="dd-card__top">
-        <span className="dd-card__avatar"><Wrench size={20} /></span>
-        <div className="dd-card__info">
-          <h3 className="dd-card__name">Falla en {falla.equipo}</h3>
-          <p className="dd-card__place">{falla.aula}</p>
-        </div>
-        <span className="dd-badge">{BADGE_FALLA[falla.estado].i}{BADGE_FALLA[falla.estado].t}</span>
-      </div>
-
-      <div className="dd-steps">
-        {ETIQUETAS_FALLA.map((e, k) => (
-          <div key={e} className={`dd-step is-${pasos[k]}`}>
-            <span className="dd-step__meta" style={{ whiteSpace: "pre-line" }}>{meta[k]}</span>
-            <span className="dd-step__dot">{pasos[k] === "done" && <Check />}</span>
-            <span className="dd-step__label">{e}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="dd-card__actions">
-        <button className="dd-btn dd-btn--ghost"><Eye /> Ver detalles</button>
-      </div>
-    </article>
-  );
-}
-
-function SinActividad({ filtrado }: { filtrado: boolean }) {
-  return (
-    <div className="dd-empty" role="status">
-      <span className="dd-empty__icon"><ClipboardCheck size={28} /></span>
-      <p className="dd-empty__title">Aún no hay actividad</p>
-      <p className="dd-empty__text">
-        {filtrado
-          ? "No tienes nada en esta categoría."
-          : "Cuando firmes un acta o reportes una falla, aparecerá aquí."}
-      </p>
-    </div>
-  );
-}
+const ESTADOS: Record<EstadoUI, string> = {
+  pendiente: "Pendiente",
+  aprobado: "Aprobada",
+  "en-curso": "En curso",
+  finalizado: "Finalizada",
+  rechazado: "Rechazada",
+  cancelado: "Cancelada",
+};
 
 export default function DashboardEstudiante() {
-  const [filtro, setFiltro] = useState<Filtro>("todas");
+  const perfil = usePerfil();
 
-  const contar = (f: Filtro) => (f === "todas" ? ITEMS.length : ITEMS.filter((i) => i.tipo === f).length);
-  const visibles = filtro === "todas" ? ITEMS : ITEMS.filter((i) => i.tipo === filtro);
+  const [reservas, setReservas] = useState<ReservaUI[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [actualizando, setActualizando] = useState(false);
+  const [error, setError] = useState("");
+
+  const cargar = async () => {
+    setError("");
+
+    try {
+      const resultado = await cargarMisReservas();
+      setReservas(resultado);
+    } catch (e) {
+      setError(mensajeError(e));
+    }
+  };
+
+  useEffect(() => {
+    cargar().finally(() => setCargando(false));
+  }, []);
+
+  const actualizar = async () => {
+    setActualizando(true);
+    await cargar();
+    setActualizando(false);
+  };
+
+  const pendientes = reservas.filter(
+    (r) => r.estado === "pendiente"
+  ).length;
+
+  const aprobadas = reservas.filter(
+    (r) =>
+      r.estado === "aprobado" ||
+      r.estado === "en-curso" ||
+      r.estado === "finalizado"
+  ).length;
+
+  const rechazadas = reservas.filter(
+    (r) => r.estado === "rechazado"
+  ).length;
+
+  const recientes = reservas.slice(0, 4);
+
+  const accesos = [
+    {
+      href: "/estudiante/solicitar",
+      titulo: "Solicitar laboratorio",
+      descripcion: "Reserva un espacio para tus prácticas.",
+      icono: CalendarCheck,
+    },
+    {
+      href: "/estudiante/reservas",
+      titulo: "Mis reservas",
+      descripcion: "Consulta y administra tus solicitudes.",
+      icono: ClipboardList,
+    },
+    {
+      href: "/estudiante/acta",
+      titulo: "Acta de compromiso",
+      descripcion: "Registra el compromiso de uso del laboratorio.",
+      icono: ClipboardCheck,
+    },
+    {
+      href: "/estudiante/falla",
+      titulo: "Reportar falla",
+      descripcion: "Informa problemas con los equipos.",
+      icono: Wrench,
+    },
+  ];
 
   return (
     <ShellDocente menu={MENU_ESTUDIANTE}>
-      <h1 className="dd-title">¡Bienvenido!</h1>
-      <p className="dd-subtitle">Firma el acta de compromiso o reporta una falla de equipo.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="dd-title">
+            ¡Bienvenido{perfil?.nombre ? `, ${perfil.nombre}` : ""}!
+          </h1>
+
+          <p className="dd-subtitle">
+            Gestiona tus prácticas, laboratorios y actividades académicas.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="dd-btn dd-btn--ghost"
+          onClick={actualizar}
+          disabled={actualizando || cargando}
+        >
+          <RefreshCw
+            className={actualizando ? "animate-spin" : ""}
+          />
+          Actualizar
+        </button>
+      </div>
 
       <BannerCarrusel banners={BANNERS} />
 
-      {/* Solo móvil */}
+      <section className="ss-card mt-4" style={{ maxWidth: "none" }}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="dd-section-title">
+              ¿Necesitas un laboratorio?
+            </h2>
+
+            <p className="dd-section-sub">
+              Solicita un espacio para tus clases y prácticas académicas.
+            </p>
+          </div>
+
+          <Link
+            href="/estudiante/solicitar"
+            className="ss-btn ss-btn--primary"
+          >
+            <CalendarCheck size={17} />
+            Nueva solicitud
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+      </section>
+
+      <section className="mt-5">
+        <div className="dd-reservas__head">
+          <div>
+            <h2 className="dd-section-title">
+              Resumen de mis reservas
+            </h2>
+
+            <p className="dd-section-sub">
+              Estado actual de tus solicitudes.
+            </p>
+          </div>
+        </div>
+
+        {error && (
+          <p className="ss-error" role="alert">
+            {error}
+          </p>
+        )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <article className="tarjeta flex items-center gap-3 p-4">
+            <span className="dd-card__avatar">
+              <ClipboardList size={21} />
+            </span>
+            <div>
+              <p className="text-sm" style={{ color: "var(--dd-mut)" }}>
+                Total de solicitudes
+              </p>
+              <p className="text-2xl font-bold">
+                {cargando ? "—" : reservas.length}
+              </p>
+            </div>
+          </article>
+
+          <article className="tarjeta flex items-center gap-3 p-4">
+            <span className="dd-card__avatar">
+              <Clock size={21} />
+            </span>
+            <div>
+              <p className="text-sm" style={{ color: "var(--dd-mut)" }}>
+                Pendientes
+              </p>
+              <p className="text-2xl font-bold">
+                {cargando ? "—" : pendientes}
+              </p>
+            </div>
+          </article>
+
+          <article className="tarjeta flex items-center gap-3 p-4">
+            <span className="dd-card__avatar">
+              <CheckCircle size={21} />
+            </span>
+            <div>
+              <p className="text-sm" style={{ color: "var(--dd-mut)" }}>
+                Aprobadas / realizadas
+              </p>
+              <p className="text-2xl font-bold">
+                {cargando ? "—" : aprobadas}
+              </p>
+            </div>
+          </article>
+
+          <article className="tarjeta flex items-center gap-3 p-4">
+            <span className="dd-card__avatar">
+              <XCircle size={21} />
+            </span>
+            <div>
+              <p className="text-sm" style={{ color: "var(--dd-mut)" }}>
+                Rechazadas
+              </p>
+              <p className="text-2xl font-bold">
+                {cargando ? "—" : rechazadas}
+              </p>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section className="dd-services">
-        <h2 className="dd-section-title">Panel de servicios</h2>
-        <p className="dd-section-sub">¿Qué necesitas hacer?</p>
+        <h2 className="dd-section-title">
+          Servicios para estudiantes
+        </h2>
+
+        <p className="dd-section-sub">
+          Selecciona el servicio que necesitas.
+        </p>
+
         <div className="dd-services__grid">
-          {MENU_ESTUDIANTE.map(({ href, t, i: Icon }) => (
-            <Link key={href} href={href} className="dd-service">
-              <span className="dd-service__icon"><Icon size={20} /></span>{t}
-            </Link>
-          ))}
+          {accesos.map((acceso) => {
+            const Icon = acceso.icono;
+
+            return (
+              <Link
+                key={acceso.href}
+                href={acceso.href}
+                className="dd-service"
+              >
+                <span className="dd-service__icon">
+                  <Icon size={21} />
+                </span>
+
+                <span className="flex-1">
+                  <span className="block font-semibold">
+                    {acceso.titulo}
+                  </span>
+
+                  <span
+                    className="mt-1 block text-xs"
+                    style={{ color: "var(--dd-mut)" }}
+                  >
+                    {acceso.descripcion}
+                  </span>
+                </span>
+
+                <ArrowRight size={16} />
+              </Link>
+            );
+          })}
         </div>
       </section>
 
       <section className="dd-reservas">
-        <div className="dd-reservas__head">
-          <h2 className="dd-section-title">Mi actividad</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="dd-section-title">
+              Mis últimas solicitudes
+            </h2>
+
+            <p className="dd-section-sub">
+              Consulta las novedades de tus laboratorios.
+            </p>
+          </div>
+
+          <Link
+            href="/estudiante/reservas"
+            className="ss-link"
+          >
+            Ver todas
+            <ArrowRight size={15} className="inline ml-1" />
+          </Link>
         </div>
 
-        <div className="dd-chips" role="tablist" aria-label="Filtrar actividad">
-          {FILTROS.map((f) => (
+        {cargando ? (
+          <p className="dd-section-sub mt-4">
+            Cargando tus solicitudes...
+          </p>
+        ) : error ? (
+          <div className="dd-empty" role="status">
+            <p className="dd-empty__title">
+              No se pudieron cargar las reservas
+            </p>
+
+            <p className="dd-empty__text">
+              Comprueba tu conexión e inténtalo nuevamente.
+            </p>
+
             <button
-              key={f.id}
-              role="tab"
-              aria-selected={filtro === f.id}
-              className={`dd-chip ${filtro === f.id ? "is-active" : ""}`}
-              onClick={() => setFiltro(f.id)}
+              type="button"
+              className="ss-btn ss-btn--primary mt-3"
+              onClick={actualizar}
             >
-              {f.t} ({contar(f.id)})
+              Intentar nuevamente
             </button>
-          ))}
-        </div>
+          </div>
+        ) : recientes.length === 0 ? (
+          <div className="dd-empty">
+            <span className="dd-empty__icon">
+              <Monitor size={28} />
+            </span>
 
-        {visibles.length === 0 ? (
-          <SinActividad filtrado={ITEMS.length > 0} />
+            <p className="dd-empty__title">
+              Todavía no tienes solicitudes
+            </p>
+
+            <p className="dd-empty__text">
+              Cuando solicites un laboratorio, aparecerá aquí.
+            </p>
+
+            <Link
+              href="/estudiante/solicitar"
+              className="ss-btn ss-btn--primary mt-4"
+            >
+              Solicitar laboratorio
+            </Link>
+          </div>
         ) : (
           <div className="dd-list">
-            {visibles.map((i) =>
-              i.tipo === "acta" ? <TarjetaActa key={`a${i.id}`} acta={i} /> : <TarjetaFalla key={`f${i.id}`} falla={i} />,
-            )}
+            {recientes.map((r) => (
+              <article
+                key={r.id}
+                className="dd-card"
+                data-estado={r.estado}
+              >
+                <div className="dd-card__top">
+                  <span className="dd-card__avatar">
+                    <Monitor size={20} />
+                  </span>
+
+                  <div className="dd-card__info">
+                    <h3 className="dd-card__name">
+                      {r.lab}
+                    </h3>
+
+                    <p className="dd-card__place">
+                      {r.fecha} · {r.hora}
+                    </p>
+                  </div>
+
+                  <span className="dd-badge">
+                    {ESTADOS[r.estado]}
+                  </span>
+                </div>
+
+                <div className="dd-card__actions">
+                  <span
+                    className="text-xs"
+                    style={{ color: "var(--dd-mut)" }}
+                  >
+                    {r.estudiantes} estudiantes
+                  </span>
+
+                  <Link
+                    href="/estudiante/reservas"
+                    className="dd-btn dd-btn--ghost"
+                  >
+                    <ClipboardList />
+                    Consultar
+                  </Link>
+                </div>
+              </article>
+            ))}
           </div>
         )}
       </section>
