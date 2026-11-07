@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Check, ArrowLeft, ArrowRight, Send } from "lucide-react";
+import { Monitor, Check, ArrowLeft, ArrowRight, Send } from "lucide-react";
 import ShellDocente, { type ItemMenu } from "@/components/docente/ShellDocente";
-import { CARRERAS, PERIODOS } from "@/lib/types/datos";
+import { LABS, CARRERAS, PERIODOS } from "@/lib/types/datos";
 import { crearFalla } from "@/lib/servicios/fallas";
 import { mensajeError } from "@/lib/servicios/reservas";
 import { usePerfil } from "@/lib/perfil/perfil";
@@ -17,9 +17,9 @@ const FALLAS = [
 ];
 
 type Datos = {
-  fecha: string; equipo: string; aula: string; carrera: string; periodo: string; descripcion: string;
+  fecha: string; lab: string; equipo: string; carrera: string; periodo: string; descripcion: string;
 };
-type Errores = Partial<Record<"fecha" | "equipo" | "aula" | "tipos" | "descripcion", string>>;
+type Errores = Partial<Record<"fecha" | "lab" | "equipo" | "tipos" | "descripcion", string>>;
 
 const hoyISO = () => {
   const d = new Date();
@@ -32,7 +32,7 @@ const formatoFecha = (iso: string) => {
 };
 
 const inicial = (): Datos => ({
-  fecha: hoyISO(), equipo: "", aula: "",
+  fecha: hoyISO(), lab: "", equipo: "",
   carrera: CARRERAS[0] ?? "", periodo: PERIODOS[0] ?? "", descripcion: "",
 });
 
@@ -84,8 +84,8 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
     if (p === 0) {
       if (!datos.fecha) e.fecha = "Indica la fecha de la falla.";
       else if (datos.fecha > hoyISO()) e.fecha = "La fecha no puede ser futura.";
+      if (!datos.lab) e.lab = "Elige el laboratorio donde está el equipo.";
       if (!datos.equipo.trim()) e.equipo = "Indica el número del equipo.";
-      if (!datos.aula.trim()) e.aula = "Indica el aula o laboratorio.";
     }
     if (p === 1) {
       if (tipos.length === 0) e.tipos = "Elige al menos un tipo de falla.";
@@ -106,6 +106,8 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
     if (Object.keys(er).length === 0) ir(paso + 1);
   };
 
+  const aula = datos.lab ? `Laboratorio ${datos.lab}` : "";
+
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (paso !== 2 || enviando) return;
@@ -113,7 +115,7 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
     setErrorEnvio("");
     try {
       await crearFalla({
-        equipo: datos.equipo, aula: datos.aula, carrera: datos.carrera,
+        equipo: datos.equipo, aula, carrera: datos.carrera,
         periodo: datos.periodo, tipos, descripcion: datos.descripcion,
       });
       setEnviado(true);
@@ -147,7 +149,7 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
           <span className="ss-done__icon"><Check size={30} strokeWidth={3} /></span>
           <h1 className="ss-done__title">Reporte enviado</h1>
           <p className="ss-done__text">
-            Registramos la falla del equipo {datos.equipo} en {datos.aula}. El técnico la revisará.
+            Registramos la falla del equipo {datos.equipo} en {aula}. El técnico la revisará.
           </p>
           <div className="ss-actions ss-actions--center">
             <button type="button" className="ss-btn ss-btn--ghost" onClick={nuevo}>Reportar otra falla</button>
@@ -161,7 +163,7 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
   return (
     <ShellDocente menu={menu}>
       <h1 className="dd-title">Reportar incidencia</h1>
-      <p className="dd-subtitle">Cuéntanos qué equipo falló y el técnico lo revisará.</p>
+      <p className="dd-subtitle">Completa los 3 pasos y el técnico revisará el equipo.</p>
 
       <div className="ss-card">
         <ol className="ss-steps ss-steps--3" aria-label="Progreso del reporte">
@@ -181,6 +183,7 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
           {/* Paso 1 */}
           <fieldset className="ss-fieldset" hidden={paso !== 0}>
             <legend className="ss-legend">¿Dónde está el equipo?</legend>
+
             <div className="ss-row">
               <Grupo id="nombre" label="Nombres y apellidos">
                 <input className="input" id="nombre" value={nombre} readOnly />
@@ -192,20 +195,42 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
                 />
               </Grupo>
             </div>
-            <div className="ss-row">
-              <Grupo id="equipo" label="PC N.º / equipo" error={errores.equipo}>
-                <input
-                  className="input" {...attrs("equipo")} value={datos.equipo}
-                  onChange={set("equipo")} placeholder="Ej: PC-12"
-                />
-              </Grupo>
-              <Grupo id="aula" label="Aula" error={errores.aula}>
-                <input
-                  className="input" {...attrs("aula")} value={datos.aula}
-                  onChange={set("aula")} placeholder="Ej: Laboratorio 203"
-                />
-              </Grupo>
+
+            <div className="ss-group" role="radiogroup" aria-labelledby="lab-label">
+              <span id="lab-label" className="ss-label">Laboratorio del equipo</span>
+              <div className="ss-labs">
+                {LABS.map((l: string | number) => {
+                  const id = String(l);
+                  const activo = datos.lab === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      role="radio"
+                      aria-checked={activo}
+                      className={`ss-lab ${activo ? "is-selected" : ""}`}
+                      onClick={() => {
+                        setDatos((d) => ({ ...d, lab: id }));
+                        setErrores((er) => ({ ...er, lab: undefined }));
+                      }}
+                    >
+                      <span className="ss-lab__icon"><Monitor size={18} /></span>
+                      <span className="ss-lab__name">Laboratorio {id}</span>
+                      <span className="ss-lab__meta">Toca para elegir</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {errores.lab && <p className="ss-error" role="alert">{errores.lab}</p>}
             </div>
+
+            <Grupo id="equipo" label="PC N.º / equipo" error={errores.equipo}>
+              <input
+                className="input" {...attrs("equipo")} value={datos.equipo}
+                onChange={set("equipo")} placeholder="Ej: PC-12"
+              />
+            </Grupo>
+
             <div className="ss-row">
               <Grupo id="carrera" label="Carrera">
                 <select className="input" id="carrera" value={datos.carrera} onChange={set("carrera")}>
@@ -268,8 +293,8 @@ export default function FormFalla({ menu }: { menu?: ItemMenu[] }) {
               <dl className="ss-sum__list">
                 <Fila k="Reportado por" v={nombre || "—"} />
                 <Fila k="Fecha" v={formatoFecha(datos.fecha)} />
+                <Fila k="Laboratorio" v={aula || "—"} />
                 <Fila k="Equipo" v={datos.equipo || "—"} />
-                <Fila k="Aula" v={datos.aula || "—"} />
                 <Fila k="Carrera" v={datos.carrera} />
                 <Fila k="Período" v={datos.periodo} />
               </dl>
