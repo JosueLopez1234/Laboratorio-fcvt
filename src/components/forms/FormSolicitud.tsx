@@ -20,6 +20,7 @@ type Datos = {
   carrera: string; asignatura: string; periodo: string;
   fecha: string; lab: string; inicio: string; fin: string;
   estudiantes: string; actividad: string; cedula: string; motivoEspecial: string;
+  tipoDocente: "clase" | "examen";
 };
 type Errores = Partial<Record<keyof Datos, string>>;
 
@@ -29,6 +30,7 @@ const INICIAL: Datos = {
   periodo: PERIODOS[0] ?? "",
   fecha: "", lab: "", inicio: "", fin: "",
   estudiantes: "", actividad: "", cedula: "", motivoEspecial: "",
+  tipoDocente: "clase",
 };
 
 const hoy = () => {
@@ -205,7 +207,7 @@ export default function FormSolicitud({ modo }: { modo: "docente" | "estudiante"
         carrera: datos.carrera, periodo: datos.periodo, asignatura: datos.asignatura,
         estudiantes: Number(datos.estudiantes), actividad: datos.actividad,
         firmaUrl,
-        tipo: esEst ? "especial" : "clase",
+        tipo: esEst ? "especial" : datos.tipoDocente,
         motivoEspecial: esEst ? datos.motivoEspecial.trim() : undefined,
       });
       setEnviado(true);
@@ -387,6 +389,19 @@ export default function FormSolicitud({ modo }: { modo: "docente" | "estudiante"
           {/* Paso 3 */}
           <fieldset className="ss-fieldset" hidden={paso !== 2}>
             <legend className="ss-legend">Detalles</legend>
+
+            {!esEst && (
+              <Grupo id="tipoDocente" label="Tipo de reserva">
+                <select
+                  className="input" id="tipoDocente"
+                  value={datos.tipoDocente} onChange={set("tipoDocente")}
+                >
+                  <option value="clase">Clase / práctica</option>
+                  <option value="examen">Examen</option>
+                </select>
+              </Grupo>
+            )}
+
             <div className="ss-row">
               <Grupo id="estudiantes" label={esEst ? "N.º de asistentes" : "N.º de estudiantes"} error={errores.estudiantes}>
                 <input
@@ -450,6 +465,9 @@ export default function FormSolicitud({ modo }: { modo: "docente" | "estudiante"
             <Resumen
               titulo="Detalles" onEditar={() => ir(2)}
               filas={[
+                ...(!esEst
+                  ? [["Tipo", datos.tipoDocente === "examen" ? "Examen" : "Clase / práctica"] as [string, string]]
+                  : []),
                 [esEst ? "Asistentes" : "Estudiantes", datos.estudiantes || "—"],
                 ["Cédula", datos.cedula || "—"],
                 ...(esEst ? [["Motivo", datos.motivoEspecial.trim() || "—"] as [string, string]] : []),

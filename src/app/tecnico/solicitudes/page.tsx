@@ -187,7 +187,7 @@ export default function Solicitudes() {
                     <div className="dd-card__info">
                       <h3 className="dd-card__name">Laboratorio {s.lab}</h3>
                       <p className="dd-card__place">
-                        {s.tipo === "especial" ? "Solicitud especial de " : "Solicitado por "}{s.docente}
+                        {s.tipo === "especial" ? "Solicitud especial de " : s.tipo === "examen" ? "Examen solicitado por " : "Solicitado por "}{s.docente}
                       </p>
                     </div>
                     <span className="dd-badge">{BADGE[s.estado].i}{BADGE[s.estado].t}</span>
@@ -202,7 +202,9 @@ export default function Solicitudes() {
                       </div>
                     ))}
                   </div>
-
+                  {s.tipo === "examen" && (
+                    <p className="tt-meta"><strong>Reserva para examen</strong></p>
+                  )}
                   {s.tipo === "especial" && s.motivoEspecial && (
                     <p className="tt-meta"><strong>Motivo especial:</strong> {s.motivoEspecial}</p>
                   )}
@@ -280,7 +282,7 @@ export default function Solicitudes() {
           onClose={() => setDetalle(null)}
           filas={[
             ["Solicitante", `${detalle.docente} (${detalle.rol === "estudiante" ? "Estudiante" : "Docente"})`],
-            ["Tipo", detalle.tipo === "especial" ? "Especial (estudiante)" : "Clase (docente)"],
+            ["Tipo", detalle.tipo === "especial" ? "Especial (estudiante)" : detalle.tipo === "examen" ? "Examen (docente)" : "Clase (docente)"],
             ["Fecha", fechaLarga(detalle.fecha)],
             ["Horario", `${detalle.inicio} - ${detalle.fin}`],
             ["Personas", String(detalle.est)],

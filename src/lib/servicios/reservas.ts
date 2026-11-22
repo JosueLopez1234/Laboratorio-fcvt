@@ -2,7 +2,7 @@ import { supabase } from "@/lib/servicios/supabase";
 
 /* ---------- Tipos ---------- */
 export type EstadoUI = "pendiente" | "aprobado" | "en-curso" | "finalizado" | "rechazado" | "cancelado";
-export type TipoReserva = "clase" | "especial";
+export type TipoReserva = "clase" | "especial" | "examen";
 
 export type ReservaUI = {
   id: string;
@@ -63,6 +63,10 @@ const aHoras = (t: string) => {
 
 export function mensajeError(err: unknown): string {
   const msg = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : "";
+  if (msg.includes("prestado a una entidad externa")) return "El laboratorio está prestado a una entidad externa en ese horario.";
+  if (msg.includes("ya está prestado")) return "El laboratorio ya está prestado en ese horario.";
+  if (msg.includes("reserva aprobada en ese horario")) return "El laboratorio ya tiene una reserva aprobada en ese horario.";
+  if (msg.includes("Indica la hora de inicio y fin")) return "Indica la hora de inicio y de fin del préstamo.";
   if (msg.includes("clase en ese horario")) return "El laboratorio tiene clase en ese horario.";
   if (msg.includes("ya está ocupado")) return "El laboratorio ya está ocupado en ese horario (reserva de un docente o clase).";
   if (msg.includes("especial_requiere_motivo")) return "Explica el motivo de la solicitud (mínimo 10 caracteres).";
@@ -71,7 +75,6 @@ export function mensajeError(err: unknown): string {
   if (msg.includes("reservas_solo_laborables")) return "Solo se pueden reservar de lunes a viernes.";
   return msg || "Ocurrió un error. Intenta de nuevo.";
 }
-
 async function uid() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Debes iniciar sesión.");
@@ -225,9 +228,16 @@ export async function cargarReservasHoy(): Promise<OcupacionHoy[]> {
 export type OcupacionDia = { lab: string; ini: number; fin: number };
 
 export async function cargarOcupacionFecha(fecha: string): Promise<OcupacionDia[]> {
-  const { data, error } = await supabase.rpc("ocupacion_fecha", { p_fecha: fecha });
-  if (error) throw error;
-  return ((data ?? []) as { laboratorio_id: string; hora_inicio: string; hora_fin: string }[]).map((r) => ({
+  const [reservas, prestamos] = await Promise.all([
+    supabase.rpc("ocupacion_fecha", { p_fecha: fecha }),
+    supabase.rpc("prestamos_fecha", { p_fecha: fecha }),
+  ]);
+  if (reservas.error) throw reservas.error;
+  const filas = [
+    ...((reservas.data ?? []) as { laboratorio_id: string; hora_inicio: string; hora_fin: string }[]),
+    ...((prestamos.data ?? []) as { laboratorio_id: string; hora_inicio: string; hora_fin: string }[]),
+  ];
+  return filas.map((r) => ({
     lab: r.laboratorio_id,
     ini: aHoras(r.hora_inicio),
     fin: aHoras(r.hora_fin),

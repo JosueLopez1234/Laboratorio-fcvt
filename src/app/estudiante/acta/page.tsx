@@ -22,7 +22,7 @@ const COMPROMISOS = [
   "Responder por los daños causados por mal uso.",
 ];
 
-type Fila = { id: number; cedula: string; nombre: string };
+type Fila = { id: number; cedula: string; nombre: string; pc: string };
 type Datos = { carrera: string; fecha: string; periodo: string };
 type ErroresDatos = Partial<Record<keyof Datos, string>>;
 
@@ -35,6 +35,9 @@ const formatoFecha = (iso: string) => {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
 };
+
+const filasIniciales = (): Fila[] =>
+  Array.from({ length: 5 }, (_, i) => ({ id: i + 1, cedula: "", nombre: "", pc: "" }));
 
 function Grupo({
   id, label, error, children,
@@ -61,9 +64,7 @@ export default function Acta() {
   const sig = useRef(6);
   const [paso, setPaso] = useState(0);
   const [datos, setDatos] = useState<Datos>({ carrera: CARRERAS[0] ?? "", fecha: hoyISO(), periodo: PERIODOS[0] ?? "" });
-  const [filas, setFilas] = useState<Fila[]>(
-    Array.from({ length: 5 }, (_, i) => ({ id: i + 1, cedula: "", nombre: "" })),
-  );
+  const [filas, setFilas] = useState<Fila[]>(filasIniciales);
   const [acepto, setAcepto] = useState(false);
   const [firma, setFirma] = useState<string | null>(null);
   const [errFirma, setErrFirma] = useState("");
@@ -75,7 +76,7 @@ export default function Acta() {
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
 
-  const llenas = filas.filter((f) => f.cedula.trim() || f.nombre.trim());
+  const llenas = filas.filter((f) => f.cedula.trim() || f.nombre.trim() || f.pc.trim());
 
   const setDato = (k: keyof Datos) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -83,7 +84,7 @@ export default function Acta() {
       setErrDatos((er) => ({ ...er, [k]: undefined }));
     };
 
-  const setFila = (id: number, k: "cedula" | "nombre", v: string) => {
+  const setFila = (id: number, k: "cedula" | "nombre" | "pc", v: string) => {
     setFilas((fs) => fs.map((f) => (f.id === id ? { ...f, [k]: k === "cedula" ? v.replace(/\D/g, "") : v } : f)));
     setErrFilas((er) => {
       const n = { ...er };
@@ -95,7 +96,7 @@ export default function Acta() {
 
   const agregar = () => {
     if (filas.length >= MAX_EST) return;
-    setFilas((fs) => [...fs, { id: sig.current++, cedula: "", nombre: "" }]);
+    setFilas((fs) => [...fs, { id: sig.current++, cedula: "", nombre: "", pc: "" }]);
   };
   const quitar = (id: number) => setFilas((fs) => (fs.length > 1 ? fs.filter((f) => f.id !== id) : fs));
 
@@ -110,11 +111,15 @@ export default function Acta() {
   const validarFilas = () => {
     const e: Record<number, string> = {};
     const vistas = new Set<string>();
+    const pcs = new Set<string>();
     for (const f of llenas) {
+      const pc = f.pc.trim().toLowerCase();
       if (!/^\d{10}$/.test(f.cedula)) e[f.id] = "La cédula debe tener 10 dígitos.";
       else if (vistas.has(f.cedula)) e[f.id] = "Esta cédula ya está en la lista.";
       else if (!f.nombre.trim()) e[f.id] = "Falta el nombre y apellidos.";
+      else if (pc && pcs.has(pc)) e[f.id] = "Esta máquina ya está asignada a otro estudiante.";
       vistas.add(f.cedula);
+      if (pc) pcs.add(pc);
     }
     setErrFilas(e);
     const general = llenas.length === 0 ? "Agrega al menos un estudiante." : "";
@@ -159,7 +164,11 @@ export default function Acta() {
         carrera: datos.carrera,
         periodo: datos.periodo,
         fecha: datos.fecha,
-        estudiantes: llenas.map((f) => ({ cedula: f.cedula, nombre: f.nombre.trim() })),
+        estudiantes: llenas.map((f) => ({
+          cedula: f.cedula,
+          nombre: f.nombre.trim(),
+          pc: f.pc.trim() || undefined,
+        })),
         firmaUrl,
       });
       setEnviado(true);
@@ -174,7 +183,7 @@ export default function Acta() {
   const nueva = () => {
     sig.current = 6;
     setDatos({ carrera: CARRERAS[0] ?? "", fecha: hoyISO(), periodo: PERIODOS[0] ?? "" });
-    setFilas(Array.from({ length: 5 }, (_, i) => ({ id: i + 1, cedula: "", nombre: "" })));
+    setFilas(filasIniciales());
     setAcepto(false);
     setFirma(null);
     setErrFirma("");
@@ -273,6 +282,12 @@ export default function Acta() {
                         aria-invalid={errFilas[f.id] ? true : undefined}
                         value={f.nombre} onChange={(e) => setFila(f.id, "nombre", e.target.value)}
                       />
+                      <input
+                        className="input" placeholder="N.º de PC (ej: PC-12)"
+                        aria-label={`Número de máquina del estudiante ${i + 1}`}
+                        aria-invalid={errFilas[f.id] ? true : undefined}
+                        value={f.pc} onChange={(e) => setFila(f.id, "pc", e.target.value)}
+                      />
                     </div>
                     <button
                       type="button" className="ss-stu__x" aria-label={`Quitar estudiante ${i + 1}`}
@@ -326,6 +341,7 @@ export default function Acta() {
                 <FilaResumen k="Período" v={datos.periodo} />
                 <FilaResumen k="Fecha" v={formatoFecha(datos.fecha)} />
                 <FilaResumen k="Estudiantes" v={String(llenas.length)} />
+                <FilaResumen k="Con PC asignada" v={String(llenas.filter((f) => f.pc.trim()).length)} />
               </dl>
             </section>
 

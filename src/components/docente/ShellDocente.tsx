@@ -4,8 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  House, Plus, ClipboardCheck, CalendarCheck, LogIn, Wrench, Package, Menu,
-  ClipboardList, Cog, Boxes, CalendarDays,
+  Bell, User, House, Plus, ClipboardCheck, CalendarCheck, LogIn, Wrench, Package, Menu,
+  ClipboardList, Cog, Boxes, Handshake, ClipboardClock,
   type LucideIcon,
 } from "lucide-react";
 import BotonCampana from "@/components/notificaciones/Botoncampana";
@@ -35,7 +35,8 @@ export const MENU_TECNICO: ItemMenu[] = [
   { href: "/tecnico/solicitudes", t: "Solicitudes", i: ClipboardList },
   { href: "/tecnico/mantenimiento", t: "Mantenimiento", i: Cog },
   { href: "/tecnico/inventario", t: "Inventario", i: Boxes },
-  { href: "/tecnico/horarios", t: "Horarios", i: CalendarDays },
+  { href: "/tecnico/prestamos", t: "Préstamos", i: Handshake },
+  { href: "/tecnico/accesos", t: "Accesos", i: ClipboardClock },
 ];
 
 /* Sin `menu` usa el del docente. Para otro rol, pásale su propio menú.

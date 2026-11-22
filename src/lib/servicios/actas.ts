@@ -4,7 +4,7 @@ export async function crearActa(d: {
   carrera: string;
   periodo: string;
   fecha: string;
-  estudiantes: { cedula: string; nombre: string }[];
+  estudiantes: { cedula: string; nombre: string; pc?: string }[];
   firmaUrl?: string;
 }) {
   const { data: { user } } = await supabase.auth.getUser();

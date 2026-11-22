@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Wrench, Check, X, Clock, ArrowLeft, ArrowRight, Send, Plus, ClipboardCheck } from "lucide-react";
+import { Wrench, Check, X, Clock, ArrowLeft, ArrowRight, Send, Plus, ClipboardCheck, History } from "lucide-react";
 import ShellDocente, { MENU_TECNICO } from "@/components/docente/ShellDocente";
 import { Firma } from "@/components/layouts/ui";
 import { LABS, PERIODOS } from "@/lib/types/datos";
@@ -11,6 +11,7 @@ import {
 } from "@/lib/servicios/fallas";
 import { mensajeError } from "@/lib/servicios/reservas";
 import { usePerfil } from "@/lib/perfil/perfil";
+import HistorialPc from "@/components/HistorialPC";
 
 type Estado = EstadoFalla;
 type Paso = "done" | "current" | "todo";
@@ -336,6 +337,7 @@ export default function Mantenimiento() {
   const [vista, setVista] = useState<"lista" | "form" | "ok">("lista");
   const [base, setBase] = useState<FallaTec | null>(null);
   const [guardado, setGuardado] = useState<Datos | null>(null);
+  const [verHistorial, setVerHistorial] = useState<string | null>(null);
 
   const recargar = () =>
     cargarFallas().then(setItems).catch((e) => setError(mensajeError(e)));
@@ -453,6 +455,7 @@ export default function Mantenimiento() {
               const pasos = PASOS[f.estado];
               const meta = [f.fecha, f.aula, f.falla, `Reportó\n${f.quien}`];
               const abierta = f.estado === "abierta" || f.estado === "reparacion";
+              const historialAbierto = verHistorial === f.id;
               return (
                 <article key={f.id} className="dd-card" data-estado={CSS_ESTADO[f.estado]}>
                   <div className="dd-card__top">
@@ -476,8 +479,16 @@ export default function Mantenimiento() {
 
                   {f.diagnostico && <p className="tt-meta">Diagnóstico: {f.diagnostico}</p>}
 
-                  {abierta && (
-                    <div className="dd-card__actions" style={{ justifyContent: "flex-end" }}>
+                  <div className="dd-card__actions">
+                    <button
+                      type="button" className="dd-btn dd-btn--ghost"
+                      aria-expanded={historialAbierto}
+                      onClick={() => setVerHistorial(historialAbierto ? null : f.id)}
+                    >
+                      <History /> {historialAbierto ? "Ocultar historial de uso" : "Ver quién usó esta PC"}
+                    </button>
+
+                    {abierta && (
                       <div className="tt-btns">
                         {f.estado === "abierta" && (
                           <button className="dd-btn dd-btn--ghost" onClick={() => marcarReparacion(f.id)}>
@@ -488,7 +499,11 @@ export default function Mantenimiento() {
                           <Check /> Registrar mantenimiento
                         </button>
                       </div>
-                    </div>
+                    )}
+                  </div>
+
+                  {historialAbierto && (
+                    <HistorialPc equipo={f.equipo} lab={numeroLab(f.aula) || undefined} />
                   )}
                 </article>
               );
