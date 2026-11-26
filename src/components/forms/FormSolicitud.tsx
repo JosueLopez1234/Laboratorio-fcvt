@@ -11,6 +11,7 @@ import {
 import { cargarHorarios, type Bloque } from "@/lib/types/horarios";
 import { usePerfil } from "@/lib/perfil/perfil";
 import { subirFirma } from "@/lib/types/firmas";
+import { useConexion, mensajeSinRed } from "@/lib/servicios/conexion";
 
 const CAPACIDAD_DEFECTO = 40;
 const PASOS = ["Académico", "Horario", "Detalles", "Revisión"];
@@ -101,6 +102,9 @@ export default function FormSolicitud({ modo }: { modo: "docente" | "estudiante"
   const rutaReservas = esEst ? "/estudiante/reservas" : "/docente/reservas";
 
   const perfil = usePerfil();
+  const { estado: conexion } = useConexion();
+  const sinRed = conexion !== "ok";
+
   const [paso, setPaso] = useState(0);
   const [datos, setDatos] = useState<Datos>(INICIAL);
   const [errores, setErrores] = useState<Errores>({});
@@ -198,6 +202,10 @@ export default function FormSolicitud({ modo }: { modo: "docente" | "estudiante"
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (paso !== 3 || enviando) return;
+    if (sinRed) {
+      setErrorEnvio(mensajeSinRed(conexion));
+      return;
+    }
     setEnviando(true);
     setErrorEnvio("");
     try {
@@ -477,7 +485,10 @@ export default function FormSolicitud({ modo }: { modo: "docente" | "estudiante"
             />
           </fieldset>
 
-          {errorEnvio && <p className="ss-error" role="alert">{errorEnvio}</p>}
+          {paso === 3 && sinRed && (
+            <p className="ss-error" role="status">{mensajeSinRed(conexion)}</p>
+          )}
+          {errorEnvio && !(paso === 3 && sinRed) && <p className="ss-error" role="alert">{errorEnvio}</p>}
 
           <div className="ss-actions">
             <Link href="/" className="ss-btn ss-btn--danger">Cancelar</Link>
@@ -492,8 +503,13 @@ export default function FormSolicitud({ modo }: { modo: "docente" | "estudiante"
                   Siguiente <ArrowRight size={16} />
                 </button>
               ) : (
-                <button type="submit" className="ss-btn ss-btn--primary" disabled={enviando}>
-                  <Send size={16} /> {enviando ? "Enviando…" : "Enviar solicitud"}
+                <button
+                  type="submit"
+                  className="ss-btn ss-btn--primary"
+                  disabled={enviando || sinRed}
+                  style={sinRed ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                >
+                  <Send size={16} /> {enviando ? "Enviando…" : sinRed ? "Sin conexión" : "Enviar solicitud"}
                 </button>
               )}
             </div>

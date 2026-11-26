@@ -9,6 +9,7 @@ import { usePerfil } from "@/lib/perfil/perfil";
 import { registrarAcceso } from "@/lib/servicios/accesos";
 import { mensajeError } from "@/lib/servicios/reservas";
 import { subirFirma } from "@/lib/types/firmas";
+import { useConexion, mensajeSinRed } from "@/lib/servicios/conexion";
 
 const PASOS = ["Registro", "Revisión"];
 const MAX_PCS = 40;
@@ -60,6 +61,9 @@ function Fila({ k, v }: { k: string; v: string }) {
 
 export default function IngresoSalida() {
   const perfil = usePerfil();
+  const { estado: conexion } = useConexion();
+  const sinRed = conexion !== "ok";
+
   const [paso, setPaso] = useState(0);
   const [datos, setDatos] = useState<Datos>(inicial);
   const [pcs, setPcs] = useState<string[]>([]);
@@ -132,6 +136,10 @@ export default function IngresoSalida() {
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (paso !== 1 || enviando) return;
+    if (sinRed) {
+      setErrorEnvio(mensajeSinRed(conexion));
+      return;
+    }
     if (!firma) {
       setErrFirma("Firma en el recuadro antes de guardar.");
       return;
@@ -383,7 +391,10 @@ export default function IngresoSalida() {
             {errFirma && <p className="ss-error" role="alert">{errFirma}</p>}
           </fieldset>
 
-          {errorEnvio && <p className="ss-error" role="alert">{errorEnvio}</p>}
+          {paso === 1 && sinRed && (
+            <p className="ss-error" role="status">{mensajeSinRed(conexion)}</p>
+          )}
+          {errorEnvio && !(paso === 1 && sinRed) && <p className="ss-error" role="alert">{errorEnvio}</p>}
 
           <div className="ss-actions">
             <Link href="/" className="ss-btn ss-btn--danger">Cancelar</Link>
@@ -398,8 +409,13 @@ export default function IngresoSalida() {
                   Siguiente <ArrowRight size={16} />
                 </button>
               ) : (
-                <button type="submit" className="ss-btn ss-btn--primary" disabled={enviando}>
-                  <Save size={16} /> {enviando ? "Guardando…" : "Guardar registro"}
+                <button
+                  type="submit"
+                  className="ss-btn ss-btn--primary"
+                  disabled={enviando || sinRed}
+                  style={sinRed ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                >
+                  <Save size={16} /> {enviando ? "Guardando…" : sinRed ? "Sin conexión" : "Guardar registro"}
                 </button>
               )}
             </div>

@@ -1,0 +1,132 @@
+:root {
+  --uleam: #ff3547;
+  --uleam-dark: #d92a3a;
+  --card: #f5f5f5;
+  --ink: #333333;
+  --mut: #6b7280;
+}
+
+:root {
+  --dd-red: #a51c1f;
+  --dd-red-active: #f4605a;
+  --dd-navy: #1b1f5e;
+  --dd-text: #2b2f4a;
+  --dd-mut: #5b6075;
+  --dd-bg: #f0f1f5;
+  --dd-surface: #fafafa;
+  --dd-neutral: #d9dce3;
+  --dd-blue: #2d3ae0;
+  --dd-blue-soft: #e3e7ff;
+
+  --dd-pend-bg: #ffd66b;  --dd-pend-fg: #8a5a00;  --dd-pend: #f5b82e;
+  --dd-ok-bg:   #bfebcb;  --dd-ok-fg:   #1f7a3e;  --dd-ok:   #2fb15d;
+  --dd-run-bg:  #d9d6f5;  --dd-run-fg:  #3b2fb5;
+  --dd-end-bg:  #d9dce3;  --dd-end-fg:  #444a5c;
+  --dd-danger:  #d92a3a;  --dd-danger-soft: #ffe9ea;
+
+  --dd-radius-card: 18px;
+  --dd-shadow: 0 2px 10px rgba(27, 31, 94, 0.12);
+}
+
+html, body { max-width: 100%; overflow-x: hidden; }
+
+body {
+  font-family: var(--font-montserrat), system-ui, sans-serif;
+  color: var(--ink);
+  background: #fff;
+}
+
+.header-app {
+  background: var(--uleam);
+  color: #fff;
+  padding: 14px 16px;
+}
+
+.home-role-switch { padding: 8px 16px; }
+
+.tarjeta {
+  background: var(--card);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fff;
+}
+.input:focus { outline: 2px solid var(--uleam); }
+
+.btn {
+  background: var(--uleam);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 12px 20px;
+  width: 100%;
+}
+
+.encabezado-inst { border: 1px solid #000; background: #fff; }
+.encabezado-inst__fila {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+}
+.encabezado-inst__logo { height: 56px; width: auto; flex-shrink: 0; }
+.encabezado-inst__facultad {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.encabezado-inst__titulo {
+  border-top: 1px solid #000;
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.franja-logo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #fff;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.franja-logo .logo { height: 64px; width: auto; max-width: none; flex-shrink: 0; }
+.franja-logo .facultad {
+  flex: 0 1 220px;
+  text-align: right;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+@media (max-width: 640px) {
+  .home-role-switch {
+    padding: calc(env(safe-area-inset-top, 0px) + 8px)
+      max(20px, env(safe-area-inset-left, 0px))
+      8px
+      max(20px, env(safe-area-inset-right, 0px));
+  }
+  main.min-h-screen { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  main.min-h-screen > .header-app {
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  }
+  .header-app,
+  .franja-logo {
+    padding-inline: max(20px, env(safe-area-inset-left, 0px))
+      max(20px, env(safe-area-inset-right, 0px));
+  }
+  main.min-h-screen > :not(header) {
+    margin-inline: max(4px, env(safe-area-inset-left, 0px))
+      max(4px, env(safe-area-inset-right, 0px));
+  }
+}

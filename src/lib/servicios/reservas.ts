@@ -63,6 +63,8 @@ const aHoras = (t: string) => {
 
 export function mensajeError(err: unknown): string {
   const msg = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : "";
+  if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("Load failed"))
+  return "Sin conexión. Revisa tu internet e intenta de nuevo.";
   if (msg.includes("prestado a una entidad externa")) return "El laboratorio está prestado a una entidad externa en ese horario.";
   if (msg.includes("ya está prestado")) return "El laboratorio ya está prestado en ese horario.";
   if (msg.includes("reserva aprobada en ese horario")) return "El laboratorio ya tiene una reserva aprobada en ese horario.";

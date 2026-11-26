@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/perfil/auth";
 import AuthGate from "@/components/Perfil/AuthGate";
 import PermisoNotificacionesGate from "@/components/notificaciones/PermisoNotificacionesGate";
 import BotonAtras from "@/components/movil/Botonatras";
+import BannerConexion from "@/components/BannerConexion"; 
 
 const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-montserrat" });
 
@@ -15,11 +16,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <body className={montserrat.variable}>
+        <BannerConexion />
         <BotonAtras />
         <AuthProvider>
-          <PermisoNotificacionesGate>
-            <AuthGate>{children}</AuthGate>
-          </PermisoNotificacionesGate>
+        <PermisoNotificacionesGate>
+          <AuthGate>{children}</AuthGate>
+        </PermisoNotificacionesGate>
         </AuthProvider>
       </body>
     </html>
